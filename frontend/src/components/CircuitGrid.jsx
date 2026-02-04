@@ -152,8 +152,8 @@ const GateRenderer = ({ gate, onMouseDown }) => {
 };
 
 
-const CircuitGrid = ({ qubits, qubitNames, gates, onAddQubit, onRemoveQubit, onRenameQubit, onUpdateGate, onRemoveGate, selectedMoment, onMomentSelect }) => {
-    const moments = Array.from({ length: 10 }, (_, i) => i);
+const CircuitGrid = ({ qubits, momentCount, qubitNames, gates, onAddQubit, onRemoveQubit, onRenameQubit, onUpdateGate, onRemoveGate, selectedMoment, onMomentSelect, onAddMoments }) => {
+    const moments = Array.from({ length: momentCount }, (_, i) => i);
     const [activeMenu, setActiveMenu] = React.useState(null);
     const [editModal, setEditModal] = React.useState({ show: false, gate: null, targetV: '', parameterV: '' });
     const [renameModal, setRenameModal] = React.useState({ show: false, index: -1, name: '' });
@@ -186,7 +186,6 @@ const CircuitGrid = ({ qubits, qubitNames, gates, onAddQubit, onRemoveQubit, onR
     };
 
     const handleGateMouseDown = (e, gate) => {
-        // ... (unchanged)
         // If it's CNOT, start connecting drag
         if (gate.type === 'CNOT') {
             e.preventDefault();
@@ -206,14 +205,12 @@ const CircuitGrid = ({ qubits, qubitNames, gates, onAddQubit, onRemoveQubit, onR
     };
 
     const handleGlobalMouseMove = (e) => {
-        // ... (unchanged)
         if (connectingGate) {
             setDragLine({ x: e.clientX, y: e.clientY });
         }
     };
 
     const handleGlobalMouseUp = (e) => {
-        // ... (unchanged)
         if (connectingGate) {
             const line = document.elementFromPoint(e.clientX, e.clientY)?.closest('.qubit-line');
             if (line && line.dataset.qubitIndex) {
@@ -229,7 +226,6 @@ const CircuitGrid = ({ qubits, qubitNames, gates, onAddQubit, onRemoveQubit, onR
     };
 
     useEffect(() => {
-        // ... (unchanged)
         if (connectingGate) {
             window.addEventListener('mousemove', handleGlobalMouseMove);
             window.addEventListener('mouseup', handleGlobalMouseUp);
@@ -260,7 +256,6 @@ const CircuitGrid = ({ qubits, qubitNames, gates, onAddQubit, onRemoveQubit, onR
                 });
             }
         } else if (activeMenu.type === 'gate') {
-            // ... (unchanged)
             const gate = activeMenu.gate;
             if (action === 'delete') {
                 onRemoveGate(gate.id);
@@ -292,7 +287,6 @@ const CircuitGrid = ({ qubits, qubitNames, gates, onAddQubit, onRemoveQubit, onR
     };
 
     const saveEdit = () => {
-        // ... (unchanged)
         if (!editModal.gate) return;
         const updates = {};
 
@@ -374,15 +368,14 @@ const CircuitGrid = ({ qubits, qubitNames, gates, onAddQubit, onRemoveQubit, onR
     };
 
     return (
-        <div className="circuit-grid" onClick={() => setActiveMenu(null)} style={{ position: 'relative' }}>
+        <div className="circuit-grid" onClick={() => setActiveMenu(null)} style={{ position: 'relative', minWidth: 'fit-content' }}>
             {/* Background Columns for Selection */}
-            {/* ... (unchanged) */}
             <div className="moments-background" style={{
                 position: 'absolute',
                 top: 0,
                 bottom: 0,
                 left: '60px', // Matches .qubit-label width
-                right: 0,
+                right: '40px', // Leave space for the add moment button
                 display: 'flex',
                 flexDirection: 'row',
                 zIndex: 0,
@@ -400,11 +393,11 @@ const CircuitGrid = ({ qubits, qubitNames, gates, onAddQubit, onRemoveQubit, onR
                                 backgroundColor: isSelected ? 'rgba(66, 165, 245, 0.1)' : 'transparent',
                                 borderLeft: isSelected ? '1px solid rgba(66, 165, 245, 0.3)' : '1px solid transparent',
                                 borderRight: isSelected ? '1px solid rgba(66, 165, 245, 0.3)' : '1px solid transparent',
-                                borderTop: '1px solid transparent', // Match full border presence of DropCell
-                                borderBottom: '1px solid transparent', // Match full border
+                                borderTop: '1px solid transparent',
+                                borderBottom: '1px solid transparent',
                                 cursor: 'pointer',
                                 transition: 'background-color 0.2s',
-                                flexShrink: 0, // Ensure background columns don't shrink
+                                flexShrink: 0,
                             }}
                             title={`Select Moment ${momentIndex}`}
                         />
@@ -414,7 +407,6 @@ const CircuitGrid = ({ qubits, qubitNames, gates, onAddQubit, onRemoveQubit, onR
 
 
             {/* Drag Line Overlay */}
-            {/* ... (unchanged) */}
             {connectingGate && dragLine && (
                 <div style={{
                     position: 'fixed',
@@ -441,6 +433,7 @@ const CircuitGrid = ({ qubits, qubitNames, gates, onAddQubit, onRemoveQubit, onR
                 </div>
             )}
 
+            {/* Modals */}
             {editModal.show && (
                 <div className="modal-overlay" onClick={closeModal}>
                     <div className="modal-content" onClick={e => e.stopPropagation()}>
@@ -514,7 +507,7 @@ const CircuitGrid = ({ qubits, qubitNames, gates, onAddQubit, onRemoveQubit, onR
                             <label>Select Control Qubits:</label>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', maxHeight: '200px', overflowY: 'auto' }}>
                                 {Array.from({ length: qubits }).map((_, i) => {
-                                    // Disable checkbox if it's the gate itself or target
+                                    // Disable checkbox if it's the gate's own qubit or its target
                                     const disabled =
                                         i === controlModal.gate.qubit ||
                                         (controlModal.gate.type === 'CNOT' && i === controlModal.gate.target);
@@ -573,65 +566,124 @@ const CircuitGrid = ({ qubits, qubitNames, gates, onAddQubit, onRemoveQubit, onR
                 </>
             )}
 
-            {Array.from({ length: qubits }).map((_, qubitIndex) => (
-                <div
-                    key={qubitIndex}
-                    className="qubit-line"
-                    data-qubit-index={qubitIndex}
-                    style={{ pointerEvents: 'auto' }}
-                >
-                    <div
-                        className="qubit-label"
-                        onClick={(e) => handleQubitClick(e, qubitIndex)}
-                        style={{
-                            cursor: 'pointer',
-                            position: 'relative',
-                            zIndex: 2,
-                            flexShrink: 0,
-                            minWidth: '60px'
-                        }}
-                        title={`Click to manage qubit ${qubitNames && qubitNames[qubitIndex] ? qubitNames[qubitIndex] : qubitIndex}`}
-                    >
-                        {qubitNames && qubitNames[qubitIndex] ?
-                            (qubitNames[qubitIndex] === `${qubitIndex}` ? `Q${qubitIndex}` : qubitNames[qubitIndex])
-                            : `Q${qubitIndex}`}
-                    </div>
-                    <div className="timeline" style={{ zIndex: 1 }}>
-                        {moments.map(momentIndex => {
-                            const gate = gates.find(g => g.qubit === qubitIndex && g.moment === momentIndex);
-                            return (
-                                <div
-                                    key={momentIndex}
-                                    style={{ height: '100%' }}
-                                    onContextMenu={(e) => {
-                                        if (gate) {
-                                            e.preventDefault();
-                                            handleGateClick(e, gate);
-                                        }
-                                    }}
-                                >
-                                    <div onClick={(e) => {
-                                        if (gate && gate.type !== 'CNOT') {
-                                            e.stopPropagation();
-                                            handleGateClick(e, gate);
-                                        }
-                                        if (!gate) {
-                                            onColumnClick(momentIndex, e);
-                                        }
-                                    }}>
-                                        <DropCell
-                                            moment={momentIndex}
-                                            qubit={qubitIndex}
-                                            gate={gate}
-                                            onGateMouseDown={handleGateMouseDown}
-                                        />
-                                    </div>
-                                </div>
-                            );
-                        })}
+            <div style={{ display: 'flex' }}>
+                <div style={{ flex: 1 }}>
+                    {Array.from({ length: qubits }).map((_, qubitIndex) => (
+                        <div
+                            key={qubitIndex}
+                            className="qubit-line"
+                            data-qubit-index={qubitIndex}
+                            style={{ pointerEvents: 'auto' }}
+                        >
+                            <div
+                                className="qubit-label"
+                                onClick={(e) => handleQubitClick(e, qubitIndex)}
+                                style={{
+                                    cursor: 'pointer',
+                                    position: 'relative',
+                                    zIndex: 2,
+                                    flexShrink: 0,
+                                    minWidth: '60px'
+                                }}
+                                title={`Click to manage qubit ${qubitNames && qubitNames[qubitIndex] ? qubitNames[qubitIndex] : qubitIndex}`}
+                            >
+                                {qubitNames && qubitNames[qubitIndex] ?
+                                    (qubitNames[qubitIndex] === `${qubitIndex}` ? `Q${qubitIndex}` : qubitNames[qubitIndex])
+                                    : `Q${qubitIndex}`}
+                            </div>
+                            <div className="timeline" style={{ zIndex: 1 }}>
+                                {moments.map(momentIndex => {
+                                    const gate = gates.find(g => g.qubit === qubitIndex && g.moment === momentIndex);
+                                    return (
+                                        <div
+                                            key={momentIndex}
+                                            style={{ height: '100%' }}
+                                            onContextMenu={(e) => {
+                                                if (gate) {
+                                                    e.preventDefault();
+                                                    handleGateClick(e, gate);
+                                                }
+                                            }}
+                                        >
+                                            <div onClick={(e) => {
+                                                if (gate && gate.type !== 'CNOT') {
+                                                    e.stopPropagation();
+                                                    handleGateClick(e, gate);
+                                                }
+                                                if (!gate) {
+                                                    onColumnClick(momentIndex, e);
+                                                }
+                                            }}>
+                                                <DropCell
+                                                    moment={momentIndex}
+                                                    qubit={qubitIndex}
+                                                    gate={gate}
+                                                    onGateMouseDown={handleGateMouseDown}
+                                                />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ))}
+
+                    {/* Add Qubit Button below last qubit */}
+                    <div style={{ display: 'flex', alignItems: 'center', paddingLeft: '15px', marginTop: '10px' }}>
+                        <button
+                            onClick={() => onAddQubit(qubits - 1, 'after')}
+                            style={{
+                                width: '30px',
+                                height: '30px',
+                                minWidth: '30px',
+                                minHeight: '30px',
+                                padding: 0,
+                                borderRadius: '50%',
+                                border: '1px solid #444',
+                                background: 'rgba(255,255,255,0.05)',
+                                color: '#aaa',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '20px',
+                                flexShrink: 0,
+                                boxSizing: 'border-box'
+                            }}
+                            title="Add Qubit"
+                        >
+                            +
+                        </button>
                     </div>
                 </div>
-            ))}
+
+                {/* Add Moment Button at the end of the grid */}
+                <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    paddingLeft: '10px',
+                    borderLeft: '1px solid #333'
+                }}>
+                    <button
+                        onClick={onAddMoments}
+                        style={{
+                            padding: '10px',
+                            background: '#2d2d2d',
+                            color: '#fff',
+                            border: '1px solid #444',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            writingMode: 'vertical-rl',
+                            textOrientation: 'mixed',
+                            height: '100px'
+                        }}
+                        title="Extend Circuit"
+                    >
+                        + Add Moments
+                    </button>
+                </div>
+            </div>
         </div>
     );
 };

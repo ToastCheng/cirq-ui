@@ -19,6 +19,7 @@
     padding: 20px;
     border-radius: 8px;
     overflow-x: auto;
+    min-width: 0;
 }
 
 .visualization-area {

@@ -8,6 +8,7 @@ import './CircuitComposer.css';
 
 const CircuitComposer = () => {
     const [qubits, setQubits] = useState(3);
+    const [momentCount, setMomentCount] = useState(10); // Dynamic moment length
     const [qubitNames, setQubitNames] = useState(['0', '1', '2']); // Initialize defaults
     const [gates, setGates] = useState([]);
     const [simulationResult, setSimulationResult] = useState(null);
@@ -210,6 +211,7 @@ const CircuitComposer = () => {
                     <div style={{ flex: 1, overflowX: 'auto', marginBottom: '20px' }}>
                         <CircuitGrid
                             qubits={qubits}
+                            momentCount={momentCount}
                             qubitNames={qubitNames}
                             gates={gates}
                             setGates={setGates}
@@ -220,6 +222,7 @@ const CircuitComposer = () => {
                             onRemoveGate={removeGate}
                             selectedMoment={selectedMoment}
                             onMomentSelect={handleMomentSelect}
+                            onAddMoments={() => setMomentCount(prev => prev + 3)}
                         />
                     </div>
                     <div style={{ borderTop: '1px solid #3e3e3e', paddingTop: '10px' }}>

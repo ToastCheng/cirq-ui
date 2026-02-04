@@ -21,4 +21,8 @@ main {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  overflow: hidden;
+  /* Force children to scroll */
+  width: 100vw;
+  box-sizing: border-box;
 }
