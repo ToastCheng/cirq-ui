@@ -57,7 +57,7 @@ const CircuitComposer = () => {
                 });
                 if (codeRes.ok) {
                     const data = await codeRes.json();
-                    setCode(data.code);
+                    setCode(data); // data is { diagram, source_code }
                 }
 
             } catch (e) {

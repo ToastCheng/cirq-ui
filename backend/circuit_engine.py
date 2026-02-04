@@ -120,13 +120,11 @@ def run_simulation(data: CircuitData) -> SimulationResult:
         
     return SimulationResult(state_vector=formatted_state, bloch_vectors=bloch_vectors)
 
-def generate_cirq_code(data: CircuitData) -> str:
+def generate_cirq_code(data: CircuitData) -> Dict[str, str]:
     circuit = build_circuit(data)
-    return str(circuit) # This gives the diagram. 
-    # To give code, we might need to construct string manually or use repr?
-    # circuit.__repr__ gives 'cirq.Circuit(...)'
+    diagram = str(circuit)
     
-    # Let's generate readable code
+    # Generate readable code
     code = "import cirq\n\n"
     code += f"qubits = cirq.LineQubit.range({data.qubits})\n"
     code += "circuit = cirq.Circuit()\n\n"
@@ -134,7 +132,12 @@ def generate_cirq_code(data: CircuitData) -> str:
     # We can iterate over operations in the circuit
     for moment in circuit:
         for op in moment:
-            code += f"circuit.append({op})\n"
+            # Basic string representation of op might be enough, but let's try to be cleaner if possible
+            # op.__repr__ usually gives something like cirq.X(cirq.LineQubit(0))
+            # We want to use our 'qubits' list if possible, but repr uses LineQubit object.
+            # Let's just use the repr for now as it is valid python code.
+            code += f"circuit.append({repr(op)})\n"
             
     code += "\nprint(circuit)"
-    return code
+    
+    return {"diagram": diagram, "source_code": code}

@@ -24,5 +24,5 @@ def simulate(data: CircuitData):
 
 @app.post("/code")
 def get_code(data: CircuitData):
-    code = generate_cirq_code(data)
-    return {"code": code}
+    result = generate_cirq_code(data)
+    return result
