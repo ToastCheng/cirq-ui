@@ -1,8 +1,12 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 
+const CELL_SIZE = 60;
+const GAP_SIZE = 20;
+const ROW_HEIGHT = CELL_SIZE + GAP_SIZE;
+
 // Represents a single timeline spot for a qubit
-const DropCell = ({ moment, qubit, gate }) => {
+const DropCell = ({ moment, qubit, gate, onGateMouseDown }) => {
     const { isOver, setNodeRef } = useDroppable({
         id: `${moment}-${qubit}`,
     });
@@ -13,19 +17,89 @@ const DropCell = ({ moment, qubit, gate }) => {
             className={`drop-cell ${isOver ? 'over' : ''}`}
         >
             {gate && (
-                <div className={`placed-gate gate-${gate.type}`}>
-                    {gate.type}
-                </div>
+                <GateRenderer gate={gate} onMouseDown={(e) => onGateMouseDown(e, gate)} />
             )}
         </div>
     );
 };
+
+const GateRenderer = ({ gate, onMouseDown }) => {
+    if (gate.type === 'CNOT') {
+        // Calculate distance to target
+        // Default target is qubit+1 if not defined, but we ensure it is defined in Composer
+        const target = gate.target !== undefined ? gate.target : gate.qubit; // fallback
+        const distance = target - gate.qubit;
+        const height = Math.abs(distance * ROW_HEIGHT);
+
+        // Style for the line
+        // If target is below (distance > 0), line goes down.
+        // If target is above (distance < 0), line starts at top and goes up (or we translate it up)
+
+        const lineStyle = {
+            height: `${height}px`,
+            position: 'absolute',
+            left: '50%',
+            top: '50%',
+            width: '4px',
+            backgroundColor: '#42A5F5',
+            transform: `translateX(-50%) ${distance < 0 ? 'translateY(-100%)' : ''}`,
+            zIndex: 10,
+            pointerEvents: 'none' // Let clicks pass through line
+        };
+
+        const targetStyle = {
+            position: 'absolute',
+            left: '50%',
+            top: '50%',
+            transform: `translate(-50%, -50%) translateY(${distance * ROW_HEIGHT}px)`,
+            width: '30px',
+            height: '30px',
+            borderRadius: '50%',
+            border: '3px solid #42A5F5',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#42A5F5',
+            fontWeight: 'bold',
+            fontSize: '20px',
+            pointerEvents: 'none',
+            backgroundColor: '#1e1e1e', // Mask line behind
+            zIndex: 11
+        };
+
+        return (
+            <div
+                className="placed-gate gate-CNOT-container"
+                onMouseDown={onMouseDown}
+                style={{ position: 'relative', width: '100%', height: '100%' }}
+            >
+                <div className="control-dot" />
+                <div className="connection-line" style={lineStyle} />
+                <div className="target-indicator" style={targetStyle}>+</div>
+            </div>
+        );
+    }
+
+    return (
+        <div
+            className={`placed-gate gate-${gate.type}`}
+            onMouseDown={onMouseDown}
+        >
+            {gate.type}
+        </div>
+    );
+};
+
 
 const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, onRemoveGate }) => {
     // Assuming a fixed number of moments used for now, say 10
     const moments = Array.from({ length: 10 }, (_, i) => i);
     const [activeMenu, setActiveMenu] = React.useState(null);
     const [editModal, setEditModal] = React.useState({ show: false, gate: null, targetV: '' });
+
+    // Drag to connect state
+    const [connectingGate, setConnectingGate] = useState(null);
+    const [dragLine, setDragLine] = useState(null); // { startX, startY, endX, endY } relative to grid? Or just mouse pos
 
     const handleQubitClick = (e, index) => {
         e.preventDefault();
@@ -48,6 +122,74 @@ const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, o
             y: e.clientY
         });
     };
+
+    // Gate Mouse Down - Start connecting if CNOT, or just handle click for menu
+    const handleGateMouseDown = (e, gate) => {
+        // If it's CNOT, start connecting drag
+        if (gate.type === 'CNOT') {
+            // We want to handle right click as menu, left click as drag?
+            // Or maybe just left click drag works.
+            // If we drag, we update target.
+
+            // To verify if it's a drag or click, we usually wait for move.
+            // For simplicity: Start tracking.
+            e.preventDefault(); // Prevent default text selection
+            e.stopPropagation();
+
+            const rect = e.currentTarget.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+
+            setConnectingGate({
+                gate,
+                startX: centerX,
+                startY: centerY
+            });
+            setDragLine({ x: e.clientX, y: e.clientY });
+        } else {
+            // Regular gate - allow click to propagate?
+            // Actually, we are using handleGateClick for context menu which is onClick
+            // onClick triggers after onMouseUp
+        }
+    };
+
+    const handleGlobalMouseMove = (e) => {
+        if (connectingGate) {
+            setDragLine({ x: e.clientX, y: e.clientY });
+        }
+    };
+
+    const handleGlobalMouseUp = (e) => {
+        if (connectingGate) {
+            // Check where we dropped
+            const line = document.elementFromPoint(e.clientX, e.clientY)?.closest('.qubit-line');
+            if (line && line.dataset.qubitIndex) {
+                const targetIndex = parseInt(line.dataset.qubitIndex);
+                if (!isNaN(targetIndex) && targetIndex !== connectingGate.gate.qubit) {
+                    onUpdateGate(connectingGate.gate.id, { target: targetIndex });
+                }
+            }
+            setConnectingGate(null);
+            setDragLine(null);
+            return;
+        }
+    };
+
+    // Attach global listeners for dragging
+    useEffect(() => {
+        if (connectingGate) {
+            window.addEventListener('mousemove', handleGlobalMouseMove);
+            window.addEventListener('mouseup', handleGlobalMouseUp);
+        } else {
+            window.removeEventListener('mousemove', handleGlobalMouseMove);
+            window.removeEventListener('mouseup', handleGlobalMouseUp);
+        }
+        return () => {
+            window.removeEventListener('mousemove', handleGlobalMouseMove);
+            window.removeEventListener('mouseup', handleGlobalMouseUp);
+        };
+    }, [connectingGate]);
+
 
     const handleAction = (action) => {
         if (!activeMenu) return;
@@ -90,6 +232,33 @@ const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, o
 
     return (
         <div className="circuit-grid" onClick={() => setActiveMenu(null)}>
+            {/* Drag Line Overlay */}
+            {connectingGate && dragLine && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    pointerEvents: 'none',
+                    zIndex: 9999
+                }}>
+                    <svg width="100%" height="100%">
+                        <line
+                            x1={connectingGate.startX}
+                            y1={connectingGate.startY}
+                            x2={dragLine.x}
+                            y2={dragLine.y}
+                            stroke="#42A5F5"
+                            strokeWidth="4"
+                            strokeDasharray="5,5"
+                        />
+                        <circle cx={dragLine.x} cy={dragLine.y} r="15" fill="none" stroke="#42A5F5" strokeWidth="3" />
+                        <text x={dragLine.x} y={dragLine.y} fill="#42A5F5" dy="5" dx="-4" fontWeight="bold">+</text>
+                    </svg>
+                </div>
+            )}
+
             {editModal.show && (
                 <div className="modal-overlay" onClick={closeModal}>
                     <div className="modal-content" onClick={e => e.stopPropagation()}>
@@ -140,7 +309,11 @@ const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, o
             )}
 
             {Array.from({ length: qubits }).map((_, qubitIndex) => (
-                <div key={qubitIndex} className="qubit-line">
+                <div
+                    key={qubitIndex}
+                    className="qubit-line"
+                    data-qubit-index={qubitIndex}
+                >
                     <div
                         className="qubit-label"
                         onClick={(e) => handleQubitClick(e, qubitIndex)}
@@ -154,11 +327,24 @@ const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, o
                             // Find if there is a gate at this position
                             const gate = gates.find(g => g.qubit === qubitIndex && g.moment === momentIndex);
                             return (
-                                <div key={momentIndex} onClick={(e) => gate && handleGateClick(e, gate)}>
+                                <div
+                                    key={momentIndex}
+                                    onClick={(e) => gate && gate.type !== 'CNOT' && handleGateClick(e, gate)}
+                                    // For CNOT, click might be interpreted as drag start, 
+                                    // but we handled handleGateMouseDown.
+                                    // We can attach Context Menu listener to right click?
+                                    onContextMenu={(e) => {
+                                        if (gate) {
+                                            e.preventDefault();
+                                            handleGateClick(e, gate);
+                                        }
+                                    }}
+                                >
                                     <DropCell
                                         moment={momentIndex}
                                         qubit={qubitIndex}
                                         gate={gate}
+                                        onGateMouseDown={handleGateMouseDown}
                                     />
                                 </div>
                             );
