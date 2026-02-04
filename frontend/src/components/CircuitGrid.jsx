@@ -24,11 +24,64 @@ const DropCell = ({ moment, qubit, gate, onGateMouseDown }) => {
 };
 
 const GateRenderer = ({ gate, onMouseDown }) => {
+    // Helper to render control connection lines and dots
+    const renderControls = () => {
+        if (!gate.controls || gate.controls.length === 0) return null;
+
+        // Calculate offsets relative to current gate position (gate.qubit)
+        // gate.qubit is the row where this renderer is mounted.
+        return gate.controls.map((controlIndex) => {
+            const distance = controlIndex - gate.qubit; // e.g. control=0, gate=1 -> -1 (up)
+            const height = Math.abs(distance * ROW_HEIGHT);
+
+            // Line style
+            const lineStyle = {
+                height: `${height}px`,
+                position: 'absolute',
+                left: '50%',
+                top: '50%',
+                width: '4px',
+                backgroundColor: '#42A5F5',
+                transformOrigin: 'top center',
+                // If distance < 0 (control implies UP), we draw line UP.
+                // transform handles the direction or we set top/bottom.
+                // Easier: translate.
+                transform: `translateX(-50%) ${distance < 0 ? 'translateY(-100%)' : ''}`,
+                zIndex: 9,
+                pointerEvents: 'none'
+            };
+
+            // Dot style
+            const dotStyle = {
+                position: 'absolute',
+                left: '50%',
+                top: '50%',
+                // Move dot to the control line
+                transform: `translate(-50%, -50%) translateY(${distance * ROW_HEIGHT}px)`,
+                width: '14px',
+                height: '14px',
+                backgroundColor: '#1e1e1e', // Match bg
+                border: '4px solid #42A5F5',
+                borderRadius: '50%',
+                zIndex: 12,
+                pointerEvents: 'none'
+            };
+
+            return (
+                <div key={controlIndex}>
+                    <div style={lineStyle} />
+                    <div style={dotStyle} />
+                </div>
+            );
+        });
+    };
+
     if (gate.type === 'CNOT') {
         const target = gate.target !== undefined ? gate.target : gate.qubit; // fallback
         const distance = target - gate.qubit;
         const height = Math.abs(distance * ROW_HEIGHT);
 
+        // Standard CNOT line (control -> target)
         const lineStyle = {
             height: `${height}px`,
             position: 'absolute',
@@ -67,6 +120,9 @@ const GateRenderer = ({ gate, onMouseDown }) => {
                 onMouseDown={onMouseDown}
                 style={{ position: 'relative', width: '100%', height: '100%' }}
             >
+                {/* Extra generic controls */}
+                {renderControls()}
+                {/* Standard CNOT parts */}
                 <div className="control-dot" />
                 <div className="connection-line" style={lineStyle} />
                 <div className="target-indicator" style={targetStyle}>+</div>
@@ -77,9 +133,7 @@ const GateRenderer = ({ gate, onMouseDown }) => {
     // Check for rotation parameter
     let paramDisplay = null;
     if (['RX', 'RY', 'RZ'].includes(gate.type) && gate.parameter !== undefined) {
-        // Calculate multiplier of PI
         const mult = gate.parameter / Math.PI;
-        // Round to 2 decimals for display
         const rounded = Math.round(mult * 100) / 100;
         paramDisplay = <div style={{ fontSize: '10px', marginTop: '-2px' }}>{rounded}π</div>;
     }
@@ -88,10 +142,11 @@ const GateRenderer = ({ gate, onMouseDown }) => {
         <div
             className={`placed-gate gate-${gate.type}`}
             onMouseDown={onMouseDown}
-            style={{ flexDirection: 'column' }}
+            style={{ flexDirection: 'column', position: 'relative' }}
         >
-            <div>{gate.type}</div>
-            {paramDisplay}
+            {renderControls()}
+            <div style={{ zIndex: 13 }}>{gate.type}</div>
+            {paramDisplay && <div style={{ zIndex: 13 }}>{paramDisplay}</div>}
         </div>
     );
 };
@@ -102,6 +157,7 @@ const CircuitGrid = ({ qubits, qubitNames, gates, onAddQubit, onRemoveQubit, onR
     const [activeMenu, setActiveMenu] = React.useState(null);
     const [editModal, setEditModal] = React.useState({ show: false, gate: null, targetV: '', parameterV: '' });
     const [renameModal, setRenameModal] = React.useState({ show: false, index: -1, name: '' });
+    const [controlModal, setControlModal] = React.useState({ show: false, gate: null, controls: [] });
 
     // Drag to connect state
     const [connectingGate, setConnectingGate] = useState(null);
@@ -222,6 +278,14 @@ const CircuitGrid = ({ qubits, qubitNames, gates, onAddQubit, onRemoveQubit, onR
                     targetV: gate.target !== undefined ? gate.target : (gate.qubit + 1) % qubits,
                     parameterV: initialParam
                 });
+            } else if (action === 'add-control') {
+                // Open modal to select controls
+                setControlModal({
+                    show: true,
+                    gate: gate,
+                    // Pre-select existing controls
+                    controls: gate.controls ? [...gate.controls] : []
+                });
             }
         }
         setActiveMenu(null);
@@ -269,12 +333,39 @@ const CircuitGrid = ({ qubits, qubitNames, gates, onAddQubit, onRemoveQubit, onR
         closeRenameModal();
     };
 
+    const saveAddControl = () => {
+        if (!controlModal.gate) return;
+
+        onUpdateGate(controlModal.gate.id, { controls: controlModal.controls });
+        closeControlModal();
+    };
+
     const closeModal = () => {
         setEditModal({ show: false, gate: null, targetV: '', parameterV: '' });
     };
 
     const closeRenameModal = () => {
         setRenameModal({ show: false, index: -1, name: '' });
+    };
+
+    const closeControlModal = () => {
+        setControlModal({ show: false, gate: null, controls: [] });
+    };
+
+    const toggleControl = (index) => {
+        if (!controlModal.gate) return;
+        // Don't allow selecting the gate's own qubit or its target
+        if (index === controlModal.gate.qubit) return;
+        if (controlModal.gate.type === 'CNOT' && controlModal.gate.target === index) return;
+
+        setControlModal(prev => {
+            const exists = prev.controls.includes(index);
+            let newControls;
+            if (exists) newControls = prev.controls.filter(c => c !== index);
+            else newControls = [...prev.controls, index];
+
+            return { ...prev, controls: newControls };
+        });
     };
 
     const onColumnClick = (momentIndex, e) => {
@@ -415,6 +506,43 @@ const CircuitGrid = ({ qubits, qubitNames, gates, onAddQubit, onRemoveQubit, onR
                 </div>
             )}
 
+            {controlModal.show && (
+                <div className="modal-overlay" onClick={closeControlModal}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()}>
+                        <h3>Add Controls</h3>
+                        <div className="form-group">
+                            <label>Select Control Qubits:</label>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', maxHeight: '200px', overflowY: 'auto' }}>
+                                {Array.from({ length: qubits }).map((_, i) => {
+                                    // Disable checkbox if it's the gate itself or target
+                                    const disabled =
+                                        i === controlModal.gate.qubit ||
+                                        (controlModal.gate.type === 'CNOT' && i === controlModal.gate.target);
+
+                                    return (
+                                        <label key={i} style={{ display: 'flex', alignItems: 'center', opacity: disabled ? 0.5 : 1 }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={controlModal.controls.includes(i)}
+                                                onChange={() => toggleControl(i)}
+                                                disabled={disabled}
+                                            />
+                                            <span style={{ marginLeft: '8px' }}>
+                                                {qubitNames && qubitNames[i] ? qubitNames[i] : `Q${i}`}
+                                            </span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                        <div className="modal-actions">
+                            <button onClick={closeControlModal} className="btn-cancel">Cancel</button>
+                            <button onClick={saveAddControl} className="btn-save">Save</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {activeMenu && (
                 <>
                     <div
@@ -437,6 +565,7 @@ const CircuitGrid = ({ qubits, qubitNames, gates, onAddQubit, onRemoveQubit, onR
                             <>
                                 {activeMenu.gate.type === 'CNOT' && <div onClick={() => handleAction('edit')}>Edit Target</div>}
                                 {['RX', 'RY', 'RZ'].includes(activeMenu.gate.type) && <div onClick={() => handleAction('edit')}>Edit Parameter</div>}
+                                <div onClick={() => handleAction('add-control')}>Add Controls</div>
                                 <div onClick={() => handleAction('delete')} className="danger">Delete Gate</div>
                             </>
                         )}

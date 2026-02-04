@@ -8,6 +8,7 @@ class GateOp(BaseModel):
     qubit: Optional[int] = None # For 1-qubit gates
     target: Optional[int] = None # For CNOT/CZ target
     control: Optional[int] = None # For CNOT/CZ control
+    controls: Optional[List[int]] = None # For generic multi-control
     parameter: Optional[Union[float, str]] = None # For rotation gates, value in radians
     moment: int
 
@@ -73,11 +74,6 @@ def build_circuit(data: CircuitData):
         
     circuit = cirq.Circuit()
     
-    # Sort gates by moment just in case, though we can insert them freely
-    # Cirq handles moments automatically effectively if we use 'append' for layers,
-    # but here we might want precise control. 
-    # Simple approach: Create a list of moments.
-    
     # Group by moment
     max_moment = 0
     if data.gates:
@@ -88,55 +84,48 @@ def build_circuit(data: CircuitData):
     moment_ops = {i: [] for i in range(max_moment + 1)}
     
     for g in data.gates:
+        op = None
         if g.type == "H":
             if g.qubit is not None:
-                moment_ops[g.moment].append(cirq.H(qubits[g.qubit]))
+                op = cirq.H(qubits[g.qubit])
         elif g.type == "X":
             if g.qubit is not None:
-                moment_ops[g.moment].append(cirq.X(qubits[g.qubit]))
+                op = cirq.X(qubits[g.qubit])
         elif g.type == "Y":
             if g.qubit is not None:
-                moment_ops[g.moment].append(cirq.Y(qubits[g.qubit]))
+                op = cirq.Y(qubits[g.qubit])
         elif g.type == "Z":
             if g.qubit is not None:
-                moment_ops[g.moment].append(cirq.Z(qubits[g.qubit]))
+                op = cirq.Z(qubits[g.qubit])
         elif g.type == "RX":
             if g.qubit is not None:
-                # Default to pi, but actually user prompt said pi/2 default.
-                # Let's say if param is None, use pi/2.
                 val = float(g.parameter) if g.parameter is not None else np.pi / 2
-                moment_ops[g.moment].append(cirq.rx(val)(qubits[g.qubit]))
+                op = cirq.rx(val)(qubits[g.qubit])
         elif g.type == "RY":
             if g.qubit is not None:
                 val = float(g.parameter) if g.parameter is not None else np.pi / 2
-                moment_ops[g.moment].append(cirq.ry(val)(qubits[g.qubit]))
+                op = cirq.ry(val)(qubits[g.qubit])
         elif g.type == "RZ":
             if g.qubit is not None:
                 val = float(g.parameter) if g.parameter is not None else np.pi / 2
-                moment_ops[g.moment].append(cirq.rz(val)(qubits[g.qubit]))
+                op = cirq.rz(val)(qubits[g.qubit])
         elif g.type == "CNOT":
             if g.control is not None and g.target is not None:
-                moment_ops[g.moment].append(cirq.CNOT(qubits[g.control], qubits[g.target]))
-        # Add more gates as needed
+                op = cirq.CNOT(qubits[g.control], qubits[g.target])
+        
+        # Apply generic controls if present
+        if op and g.controls:
+            # helper to get qubit objects for control indices
+            control_qubits = [qubits[idx] for idx in g.controls]
+            op = op.controlled_by(*control_qubits)
+            
+        if op:
+            moment_ops[g.moment].append(op)
         
     for i in range(max_moment + 1):
-        if moment_ops[i]: # Only append if there are ops? Or append empty to force spacing?
-            # User wants strict alignment. If we skip empty, Moment indices in Cirq won't match UI moment indices.
-            # But "InsertStrategy.NEW" just creates A NEW MOMENT. 
-            # If we call append([], strategy=NEW), it might not create a Moment.
-            # However, for visual alignment, usually we just want to ensure that moment N ops are after moment N-1 ops.
-            # And that moment N ops don't slide back into N-1.
-            # Using NEW guarantees they form a new moment.
-            
-            # To ensure strict one-to-one mapping including empty moments, we might need to manually construct Moments.
-            # But usually 'NEW' is what users want for "don't slide back".
+        if moment_ops[i]:
             circuit.append(moment_ops[i], strategy=cirq.InsertStrategy.NEW_THEN_INLINE)
         else:
-            # If the moment is empty, we might want to still Create a moment to represent empty time?
-            # Cirq usually optimizes away empty moments. 
-            # If strict "index" alignment is needed for graphical display of Cirq output, 
-            # we might need to insert Identity gates or just accept that "New" strategy preserves RELATIVE order.
-            # Let's stick to "NEW" for now as requested.
             pass
         
     return circuit
@@ -174,13 +163,7 @@ def run_simulation(data: CircuitData) -> SimulationResult:
     current_moment = 0
     # Collect steps
     for step in simulator.simulate_moment_steps(circuit, qubit_order=qubits):
-        # We need the final state vector of this step
-        # Note: step.state_vector() returns the state vector.
-        # But depending on Cirq version, step itself might not be the result directly accessible. 
-        # Actually in recent Cirq, step is a StepResult. 
-        # But wait, simulate_moment_steps yields StepResult? No, it yields StepResult for each step.
         state = step.state_vector() 
-        
         fmt_state, bloch = process_state(state, data.qubits)
         steps.append(StepResult(moment=current_moment, state_vector=fmt_state, bloch_vectors=bloch))
         current_moment += 1
@@ -211,11 +194,8 @@ def generate_cirq_code(data: CircuitData) -> Dict[str, str]:
     # We can iterate over operations in the circuit
     for moment in circuit:
         for op in moment:
-            # Basic string representation of op might be enough, but let's try to be cleaner if possible
-            # op.__repr__ usually gives something like cirq.X(cirq.LineQubit(0))
-            # We want to use our 'qubits' list if possible, but repr uses LineQubit object.
-            # Let's just use the repr for now as it is valid python code.
-            code += f"circuit.append({repr(op)}, strategy=cirq.InsertStrategy.NEW_THEN_INLINE)\n"
+             # repr(op) generally uses the qubit name if it's NamedQubit
+             code += f"circuit.append({repr(op)}, strategy=cirq.InsertStrategy.NEW_THEN_INLINE)\n"
             
     code += "\nprint(circuit)"
     

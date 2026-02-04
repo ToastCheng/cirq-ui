@@ -27,7 +27,8 @@ const CircuitComposer = () => {
                     const gateObj = {
                         type: g.type,
                         qubit: g.qubit,
-                        moment: g.moment
+                        moment: g.moment,
+                        controls: g.controls // Pass generic controls if present
                     };
 
                     if (g.type === 'CNOT') {
