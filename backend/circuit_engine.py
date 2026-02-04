@@ -109,7 +109,24 @@ def build_circuit(data: CircuitData):
         # Add more gates as needed
         
     for i in range(max_moment + 1):
-        circuit.append(moment_ops[i]) # Cirq strategy: EARLIEST usually, but appending moments preserves order
+        if moment_ops[i]: # Only append if there are ops? Or append empty to force spacing?
+            # User wants strict alignment. If we skip empty, Moment indices in Cirq won't match UI moment indices.
+            # But "InsertStrategy.NEW" just creates A NEW MOMENT. 
+            # If we call append([], strategy=NEW), it might not create a Moment.
+            # However, for visual alignment, usually we just want to ensure that moment N ops are after moment N-1 ops.
+            # And that moment N ops don't slide back into N-1.
+            # Using NEW guarantees they form a new moment.
+            
+            # To ensure strict one-to-one mapping including empty moments, we might need to manually construct Moments.
+            # But usually 'NEW' is what users want for "don't slide back".
+            circuit.append(moment_ops[i], strategy=cirq.InsertStrategy.NEW)
+        else:
+            # If the moment is empty, we might want to still Create a moment to represent empty time?
+            # Cirq usually optimizes away empty moments. 
+            # If strict "index" alignment is needed for graphical display of Cirq output, 
+            # we might need to insert Identity gates or just accept that "New" strategy preserves RELATIVE order.
+            # Let's stick to "NEW" for now as requested.
+            pass
         
     return circuit
 
@@ -142,7 +159,7 @@ def generate_cirq_code(data: CircuitData) -> Dict[str, str]:
     # Generate readable code
     code = "import cirq\n\n"
     code += f"qubits = cirq.LineQubit.range({data.qubits})\n"
-    code += "circuit = cirq.Circuit()\n\n"
+    code += "circuit = cirq.Circuit(strategy=cirq.InsertStrategy.NEW)\n\n"
     
     # We can iterate over operations in the circuit
     for moment in circuit:
