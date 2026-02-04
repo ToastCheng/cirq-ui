@@ -125,7 +125,7 @@ def build_circuit(data: CircuitData):
             
             # To ensure strict one-to-one mapping including empty moments, we might need to manually construct Moments.
             # But usually 'NEW' is what users want for "don't slide back".
-            circuit.append(moment_ops[i], strategy=cirq.InsertStrategy.NEW)
+            circuit.append(moment_ops[i], strategy=cirq.InsertStrategy.NEW_THEN_INLINE)
         else:
             # If the moment is empty, we might want to still Create a moment to represent empty time?
             # Cirq usually optimizes away empty moments. 
@@ -191,7 +191,7 @@ def generate_cirq_code(data: CircuitData) -> Dict[str, str]:
     # Generate readable code
     code = "import cirq\n\n"
     code += f"qubits = cirq.LineQubit.range({data.qubits})\n"
-    code += "circuit = cirq.Circuit(strategy=cirq.InsertStrategy.NEW)\n\n"
+    code += "circuit = cirq.Circuit()\n\n"
     
     # We can iterate over operations in the circuit
     for moment in circuit:
@@ -200,7 +200,7 @@ def generate_cirq_code(data: CircuitData) -> Dict[str, str]:
             # op.__repr__ usually gives something like cirq.X(cirq.LineQubit(0))
             # We want to use our 'qubits' list if possible, but repr uses LineQubit object.
             # Let's just use the repr for now as it is valid python code.
-            code += f"circuit.append({repr(op)})\n"
+            code += f"circuit.append({repr(op)}, strategy=cirq.InsertStrategy.NEW_THEN_INLINE)\n"
             
     code += "\nprint(circuit)"
     
