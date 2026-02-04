@@ -68,8 +68,8 @@ const VisualizationPanel = ({ simulationResult }) => {
                 ))}
             </div>
 
-            <h4>State Vector (Amplitudes)</h4>
-            <div style={{ fontSize: '12px', fontFamily: 'monospace', color: '#bbb' }}>
+            <h4>State Vector</h4>
+            <div style={{ fontSize: '12px', fontFamily: 'monospace', color: '#bbb', marginBottom: '20px' }}>
                 {simulationResult.state_vector.map((amp, i) => {
                     const mag = Math.sqrt(amp.real ** 2 + amp.imag ** 2);
                     if (mag < 0.001) return null; // Hide zero amplitudes
@@ -77,6 +77,31 @@ const VisualizationPanel = ({ simulationResult }) => {
                     return (
                         <div key={i}>
                             |{i.toString(2).padStart(Math.round(Math.log2(simulationResult.state_vector.length)), '0')}⟩: {amp.real.toFixed(4)} {sign} {Math.abs(amp.imag).toFixed(4)}j
+                        </div>
+                    );
+                })}
+            </div>
+
+            <h4>Amplitudes</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                {simulationResult.state_vector.map((amp, i) => {
+                    // Calculate probability (amplitude squared)
+                    const prob = amp.real ** 2 + amp.imag ** 2;
+                    // Format label |00..>
+                    const label = `|${i.toString(2).padStart(Math.round(Math.log2(simulationResult.state_vector.length)), '0')}⟩`;
+
+                    return (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', fontSize: '12px', color: '#ccc' }}>
+                            <div style={{ width: '40px', fontFamily: 'monospace' }}>{label}</div>
+                            <div style={{ flex: 1, backgroundColor: '#333', height: '10px', borderRadius: '2px', overflow: 'hidden', marginRight: '10px' }}>
+                                <div style={{
+                                    width: `${prob * 100}%`,
+                                    backgroundColor: '#42A5F5',
+                                    height: '100%',
+                                    transition: 'width 0.3s ease'
+                                }} />
+                            </div>
+                            <div style={{ width: '40px', textAlign: 'right' }}>{(prob * 100).toFixed(1)}%</div>
                         </div>
                     );
                 })}
