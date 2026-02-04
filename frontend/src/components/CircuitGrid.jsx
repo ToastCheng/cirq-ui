@@ -97,10 +97,11 @@ const GateRenderer = ({ gate, onMouseDown }) => {
 };
 
 
-const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, onRemoveGate, selectedMoment, onMomentSelect }) => {
+const CircuitGrid = ({ qubits, qubitNames, gates, onAddQubit, onRemoveQubit, onRenameQubit, onUpdateGate, onRemoveGate, selectedMoment, onMomentSelect }) => {
     const moments = Array.from({ length: 10 }, (_, i) => i);
     const [activeMenu, setActiveMenu] = React.useState(null);
     const [editModal, setEditModal] = React.useState({ show: false, gate: null, targetV: '', parameterV: '' });
+    const [renameModal, setRenameModal] = React.useState({ show: false, index: -1, name: '' });
 
     // Drag to connect state
     const [connectingGate, setConnectingGate] = useState(null);
@@ -129,6 +130,7 @@ const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, o
     };
 
     const handleGateMouseDown = (e, gate) => {
+        // ... (unchanged)
         // If it's CNOT, start connecting drag
         if (gate.type === 'CNOT') {
             e.preventDefault();
@@ -148,12 +150,14 @@ const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, o
     };
 
     const handleGlobalMouseMove = (e) => {
+        // ... (unchanged)
         if (connectingGate) {
             setDragLine({ x: e.clientX, y: e.clientY });
         }
     };
 
     const handleGlobalMouseUp = (e) => {
+        // ... (unchanged)
         if (connectingGate) {
             const line = document.elementFromPoint(e.clientX, e.clientY)?.closest('.qubit-line');
             if (line && line.dataset.qubitIndex) {
@@ -169,6 +173,7 @@ const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, o
     };
 
     useEffect(() => {
+        // ... (unchanged)
         if (connectingGate) {
             window.addEventListener('mousemove', handleGlobalMouseMove);
             window.addEventListener('mouseup', handleGlobalMouseUp);
@@ -191,7 +196,15 @@ const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, o
             if (action === 'add-before') onAddQubit(qubitIndex, 'before');
             else if (action === 'add-after') onAddQubit(qubitIndex, 'after');
             else if (action === 'remove') onRemoveQubit(qubitIndex);
+            else if (action === 'rename') {
+                setRenameModal({
+                    show: true,
+                    index: qubitIndex,
+                    name: qubitNames && qubitNames[qubitIndex] ? qubitNames[qubitIndex] : `${qubitIndex}`
+                });
+            }
         } else if (activeMenu.type === 'gate') {
+            // ... (unchanged)
             const gate = activeMenu.gate;
             if (action === 'delete') {
                 onRemoveGate(gate.id);
@@ -215,6 +228,7 @@ const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, o
     };
 
     const saveEdit = () => {
+        // ... (unchanged)
         if (!editModal.gate) return;
         const updates = {};
 
@@ -247,8 +261,20 @@ const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, o
         }
     };
 
+    const saveRename = () => {
+        if (renameModal.index === -1) return;
+        if (onRenameQubit) {
+            onRenameQubit(renameModal.index, renameModal.name);
+        }
+        closeRenameModal();
+    };
+
     const closeModal = () => {
         setEditModal({ show: false, gate: null, targetV: '', parameterV: '' });
+    };
+
+    const closeRenameModal = () => {
+        setRenameModal({ show: false, index: -1, name: '' });
     };
 
     const onColumnClick = (momentIndex, e) => {
@@ -259,6 +285,7 @@ const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, o
     return (
         <div className="circuit-grid" onClick={() => setActiveMenu(null)} style={{ position: 'relative' }}>
             {/* Background Columns for Selection */}
+            {/* ... (unchanged) */}
             <div className="moments-background" style={{
                 position: 'absolute',
                 top: 0,
@@ -296,6 +323,7 @@ const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, o
 
 
             {/* Drag Line Overlay */}
+            {/* ... (unchanged) */}
             {connectingGate && dragLine && (
                 <div style={{
                     position: 'fixed',
@@ -327,7 +355,7 @@ const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, o
                     <div className="modal-content" onClick={e => e.stopPropagation()}>
                         <h3>Edit Gate</h3>
 
-                        {/* Target Input - Only for CNOT (though CNOT uses drag, we can keep it here too) */}
+                        {/* Target Input */}
                         {editModal.gate.type === 'CNOT' && (
                             <div className="form-group">
                                 <label>Target Qubit Index:</label>
@@ -341,7 +369,7 @@ const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, o
                             </div>
                         )}
 
-                        {/* Parameter Input - Only for Rotation Gates */}
+                        {/* Parameter Input */}
                         {['RX', 'RY', 'RZ'].includes(editModal.gate.type) && (
                             <div className="form-group">
                                 <label>Rotation Angle (multiplier of π):</label>
@@ -365,6 +393,28 @@ const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, o
                 </div>
             )}
 
+            {renameModal.show && (
+                <div className="modal-overlay" onClick={closeRenameModal}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()}>
+                        <h3>Rename Qubit</h3>
+                        <div className="form-group">
+                            <label>Name:</label>
+                            <input
+                                type="text"
+                                value={renameModal.name}
+                                onChange={e => setRenameModal({ ...renameModal, name: e.target.value })}
+                                onKeyDown={e => { if (e.key === 'Enter') saveRename(); }}
+                                autoFocus
+                            />
+                        </div>
+                        <div className="modal-actions">
+                            <button onClick={closeRenameModal} className="btn-cancel">Cancel</button>
+                            <button onClick={saveRename} className="btn-save">Save</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {activeMenu && (
                 <>
                     <div
@@ -377,6 +427,7 @@ const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, o
                     >
                         {activeMenu.type === 'qubit' && (
                             <>
+                                <div onClick={() => handleAction('rename')}>Rename Qubit</div>
                                 <div onClick={() => handleAction('add-before')}>Add Qubit Before</div>
                                 <div onClick={() => handleAction('add-after')}>Add Qubit After</div>
                                 <div onClick={() => handleAction('remove')} className="danger">Remove Qubit</div>
@@ -410,9 +461,11 @@ const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, o
                             flexShrink: 0,
                             minWidth: '60px'
                         }}
-                        title="Click to manage qubit"
+                        title={`Click to manage qubit ${qubitNames && qubitNames[qubitIndex] ? qubitNames[qubitIndex] : qubitIndex}`}
                     >
-                        Q{qubitIndex}
+                        {qubitNames && qubitNames[qubitIndex] ?
+                            (qubitNames[qubitIndex] === `${qubitIndex}` ? `Q${qubitIndex}` : qubitNames[qubitIndex])
+                            : `Q${qubitIndex}`}
                     </div>
                     <div className="timeline" style={{ zIndex: 1 }}>
                         {moments.map(momentIndex => {

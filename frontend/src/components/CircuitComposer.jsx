@@ -8,7 +8,8 @@ import './CircuitComposer.css';
 
 const CircuitComposer = () => {
     const [qubits, setQubits] = useState(3);
-    const [gates, setGates] = useState([]); // Array of { id, type, qubit, moment, control, target }
+    const [qubitNames, setQubitNames] = useState(['0', '1', '2']); // Initialize defaults
+    const [gates, setGates] = useState([]);
     const [simulationResult, setSimulationResult] = useState(null);
     const [code, setCode] = useState("");
     const [selectedMoment, setSelectedMoment] = useState(null);
@@ -21,6 +22,7 @@ const CircuitComposer = () => {
             // Construct CircuitData payload
             const circuitData = {
                 qubits,
+                qubit_names: qubitNames,
                 gates: gates.map(g => {
                     const gateObj = {
                         type: g.type,
@@ -71,7 +73,9 @@ const CircuitComposer = () => {
         };
 
         fetchData();
-    }, [qubits, gates]);
+    }, [qubits, gates, qubitNames]);
+
+    // ... (displayResult logic unchanged)
 
     // Derive the result to display based on selection
     const displayResult = React.useMemo(() => {
@@ -130,6 +134,17 @@ const CircuitComposer = () => {
 
         setQubits(prev => prev + 1);
 
+        // Add new name at insertIndex
+        setQubitNames(prev => {
+            const next = [...prev];
+            // Default name for new qubit: find next integer not in use or just append?
+            // Simple default: string of index. Wait, indices shift.
+            // Let's us "q{N}" but we might have duplicates if we just append.
+            // Safe default: just string(prev.length)
+            next.splice(insertIndex, 0, `${prev.length}`);
+            return next;
+        });
+
         setGates(prev => prev.map(g => {
             let newG = { ...g };
             if (newG.qubit >= insertIndex) {
@@ -147,6 +162,7 @@ const CircuitComposer = () => {
         if (qubits <= 1) return; // Prevent removing the last qubit
 
         setQubits(prev => prev - 1);
+        setQubitNames(prev => prev.filter((_, i) => i !== targetIndex));
 
         setGates(prev => {
             // Remove gates on the deleted qubit (either as primary, control, or target)
@@ -164,6 +180,14 @@ const CircuitComposer = () => {
                 if (newG.target !== undefined && newG.target > targetIndex) newG.target -= 1;
                 return newG;
             });
+        });
+    };
+
+    const handleRenameQubit = (index, newName) => {
+        setQubitNames(prev => {
+            const next = [...prev];
+            next[index] = newName;
+            return next;
         });
     };
 
@@ -185,10 +209,12 @@ const CircuitComposer = () => {
                     <div style={{ flex: 1, overflowX: 'auto', marginBottom: '20px' }}>
                         <CircuitGrid
                             qubits={qubits}
+                            qubitNames={qubitNames}
                             gates={gates}
                             setGates={setGates}
                             onAddQubit={addQubit}
                             onRemoveQubit={removeQubit}
+                            onRenameQubit={handleRenameQubit}
                             onUpdateGate={updateGate}
                             onRemoveGate={removeGate}
                             selectedMoment={selectedMoment}

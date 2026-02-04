@@ -13,6 +13,7 @@ class GateOp(BaseModel):
 
 class CircuitData(BaseModel):
     qubits: int
+    qubit_names: Optional[List[str]] = None
     gates: List[GateOp]
 
 class StepResult(BaseModel):
@@ -65,7 +66,11 @@ def density_matrix_to_bloch(rho):
     return [x, y, z]
 
 def build_circuit(data: CircuitData):
-    qubits = cirq.LineQubit.range(data.qubits)
+    if data.qubit_names and len(data.qubit_names) == data.qubits:
+        qubits = [cirq.NamedQubit(name) for name in data.qubit_names]
+    else:
+        qubits = cirq.LineQubit.range(data.qubits)
+        
     circuit = cirq.Circuit()
     
     # Sort gates by moment just in case, though we can insert them freely
@@ -151,7 +156,12 @@ def process_state(state_vector, n_qubits):
 
 def run_simulation(data: CircuitData) -> SimulationResult:
     circuit = build_circuit(data)
-    qubits = cirq.LineQubit.range(data.qubits)
+    # Need consistent qubit ordering for simulation result
+    if data.qubit_names and len(data.qubit_names) == data.qubits:
+        qubits = [cirq.NamedQubit(name) for name in data.qubit_names]
+    else:
+        qubits = cirq.LineQubit.range(data.qubits)
+        
     simulator = cirq.Simulator()
     
     steps = []
@@ -190,7 +200,12 @@ def generate_cirq_code(data: CircuitData) -> Dict[str, str]:
     
     # Generate readable code
     code = "import cirq\n\n"
-    code += f"qubits = cirq.LineQubit.range({data.qubits})\n"
+    if data.qubit_names and len(data.qubit_names) == data.qubits:
+        names_str = ", ".join([f"'{name}'" for name in data.qubit_names])
+        code += f"qubits = [cirq.NamedQubit(name) for name in [{names_str}]]\n"
+    else:
+        code += f"qubits = cirq.LineQubit.range({data.qubits})\n"
+        
     code += "circuit = cirq.Circuit()\n\n"
     
     # We can iterate over operations in the circuit
