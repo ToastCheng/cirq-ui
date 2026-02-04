@@ -101,6 +101,38 @@ const CircuitComposer = () => {
         }
     };
 
+    const addQubit = (targetIndex, position) => {
+        // position: 'before' or 'after'
+        const insertIndex = position === 'before' ? targetIndex : targetIndex + 1;
+
+        setQubits(prev => prev + 1);
+
+        setGates(prev => prev.map(g => {
+            if (g.qubit >= insertIndex) {
+                return { ...g, qubit: g.qubit + 1 };
+            }
+            return g;
+        }));
+    };
+
+    const removeQubit = (targetIndex) => {
+        if (qubits <= 1) return; // Prevent removing the last qubit
+
+        setQubits(prev => prev - 1);
+
+        setGates(prev => {
+            // Remove gates on the deleted qubit
+            const filtered = prev.filter(g => g.qubit !== targetIndex);
+            // Shift gates after the deleted qubit
+            return filtered.map(g => {
+                if (g.qubit > targetIndex) {
+                    return { ...g, qubit: g.qubit - 1 };
+                }
+                return g;
+            });
+        });
+    };
+
     return (
         <DndContext onDragEnd={handleDragEnd}>
             <div className="circuit-composer">
@@ -111,7 +143,13 @@ const CircuitComposer = () => {
                     </div>
                 </div>
                 <div className="main-area">
-                    <CircuitGrid qubits={qubits} gates={gates} setGates={setGates} />
+                    <CircuitGrid
+                        qubits={qubits}
+                        gates={gates}
+                        setGates={setGates}
+                        onAddQubit={addQubit}
+                        onRemoveQubit={removeQubit}
+                    />
                 </div>
                 <div className="visualization-area">
                     <VisualizationPanel simulationResult={simulationResult} />
