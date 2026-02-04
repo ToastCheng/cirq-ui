@@ -11,6 +11,7 @@ const CircuitComposer = () => {
     const [gates, setGates] = useState([]); // Array of { id, type, qubit, moment, control, target }
     const [simulationResult, setSimulationResult] = useState(null);
     const [code, setCode] = useState("");
+    const [selectedMoment, setSelectedMoment] = useState(null);
 
     const backendUrl = "http://127.0.0.1:8000";
 
@@ -71,6 +72,26 @@ const CircuitComposer = () => {
 
         fetchData();
     }, [qubits, gates]);
+
+    // Derive the result to display based on selection
+    const displayResult = React.useMemo(() => {
+        if (!simulationResult) return null;
+        if (selectedMoment !== null && simulationResult.steps) {
+            // Find step for this moment
+            // Moment index matches StepResult.moment? 
+            // StepResult.moment = -1 for initial, 0 for after moment 0 ops, etc.
+            // If user selects moment 0 (column 0), they expect state AFTER moment 0 ops?
+            // Usually yes.
+            const step = simulationResult.steps.find(s => s.moment === selectedMoment);
+            if (step) {
+                return {
+                    state_vector: step.state_vector,
+                    bloch_vectors: step.bloch_vectors
+                };
+            }
+        }
+        return simulationResult;
+    }, [simulationResult, selectedMoment]);
 
     const handleDragEnd = (event) => {
         const { active, over } = event;
@@ -150,16 +171,21 @@ const CircuitComposer = () => {
         });
     };
 
+    const handleMomentSelect = (momentIndex) => {
+        setSelectedMoment(prev => prev === momentIndex ? null : momentIndex);
+    };
+
     return (
         <DndContext onDragEnd={handleDragEnd}>
-            <div className="circuit-composer">
-                <div className="sidebar">
+            <div className="circuit-composer" onClick={() => setSelectedMoment(null)}>
+                <div className="sidebar" onClick={e => e.stopPropagation()}>
                     <GatePalette />
                     <div style={{ marginTop: '20px', color: '#888', fontSize: '12px' }}>
                         <p>Drag gates to the grid.</p>
+                        <p>Click moment column to inspect state.</p>
                     </div>
                 </div>
-                <div className="main-area">
+                <div className="main-area" onClick={e => e.stopPropagation()}>
                     <CircuitGrid
                         qubits={qubits}
                         gates={gates}
@@ -168,10 +194,12 @@ const CircuitComposer = () => {
                         onRemoveQubit={removeQubit}
                         onUpdateGate={updateGate}
                         onRemoveGate={removeGate}
+                        selectedMoment={selectedMoment}
+                        onMomentSelect={handleMomentSelect}
                     />
                 </div>
-                <div className="visualization-area">
-                    <VisualizationPanel simulationResult={simulationResult} />
+                <div className="visualization-area" onClick={e => e.stopPropagation()}>
+                    <VisualizationPanel simulationResult={displayResult} />
                     <CodePanel code={code} />
                 </div>
             </div>

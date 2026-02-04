@@ -97,7 +97,7 @@ const GateRenderer = ({ gate, onMouseDown }) => {
 };
 
 
-const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, onRemoveGate }) => {
+const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, onRemoveGate, selectedMoment, onMomentSelect }) => {
     const moments = Array.from({ length: 10 }, (_, i) => i);
     const [activeMenu, setActiveMenu] = React.useState(null);
     const [editModal, setEditModal] = React.useState({ show: false, gate: null, targetV: '', parameterV: '' });
@@ -251,8 +251,50 @@ const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, o
         setEditModal({ show: false, gate: null, targetV: '', parameterV: '' });
     };
 
+    const onColumnClick = (momentIndex, e) => {
+        e.stopPropagation();
+        if (onMomentSelect) onMomentSelect(momentIndex);
+    };
+
     return (
-        <div className="circuit-grid" onClick={() => setActiveMenu(null)}>
+        <div className="circuit-grid" onClick={() => setActiveMenu(null)} style={{ position: 'relative' }}>
+            {/* Background Columns for Selection */}
+            <div className="moments-background" style={{
+                position: 'absolute',
+                top: 0,
+                bottom: 0,
+                left: '60px', // Matches .qubit-label width
+                right: 0,
+                display: 'flex',
+                flexDirection: 'row',
+                zIndex: 0,
+                pointerEvents: 'auto',
+            }}>
+                {moments.map(momentIndex => {
+                    const isSelected = selectedMoment === momentIndex;
+                    return (
+                        <div
+                            key={momentIndex}
+                            onClick={(e) => onColumnClick(momentIndex, e)}
+                            style={{
+                                width: '60px', // Matches .drop-cell width
+                                marginRight: '10px', // Matches .drop-cell margin-right
+                                backgroundColor: isSelected ? 'rgba(66, 165, 245, 0.1)' : 'transparent',
+                                borderLeft: isSelected ? '1px solid rgba(66, 165, 245, 0.3)' : '1px solid transparent',
+                                borderRight: isSelected ? '1px solid rgba(66, 165, 245, 0.3)' : '1px solid transparent',
+                                borderTop: '1px solid transparent', // Match full border presence of DropCell
+                                borderBottom: '1px solid transparent', // Match full border
+                                cursor: 'pointer',
+                                transition: 'background-color 0.2s',
+                                flexShrink: 0, // Ensure background columns don't shrink
+                            }}
+                            title={`Select Moment ${momentIndex}`}
+                        />
+                    );
+                })}
+            </div>
+
+
             {/* Drag Line Overlay */}
             {connectingGate && dragLine && (
                 <div style={{
@@ -356,24 +398,29 @@ const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, o
                     key={qubitIndex}
                     className="qubit-line"
                     data-qubit-index={qubitIndex}
+                    style={{ pointerEvents: 'auto' }}
                 >
                     <div
                         className="qubit-label"
                         onClick={(e) => handleQubitClick(e, qubitIndex)}
-                        style={{ cursor: 'pointer', position: 'relative' }}
+                        style={{
+                            cursor: 'pointer',
+                            position: 'relative',
+                            zIndex: 2,
+                            flexShrink: 0,
+                            minWidth: '60px'
+                        }}
                         title="Click to manage qubit"
                     >
                         Q{qubitIndex}
                     </div>
-                    <div className="timeline">
+                    <div className="timeline" style={{ zIndex: 1 }}>
                         {moments.map(momentIndex => {
                             const gate = gates.find(g => g.qubit === qubitIndex && g.moment === momentIndex);
                             return (
                                 <div
                                     key={momentIndex}
-                                    onClick={(e) => gate && gate.type !== 'CNOT' && handleGateClick(e, gate)}
-                                    // Handle right click for CNOT too if needed, but primary is drag.
-                                    // For now CNOT right click is also handleGateClick via onContextMenu
+                                    style={{ height: '100%' }}
                                     onContextMenu={(e) => {
                                         if (gate) {
                                             e.preventDefault();
@@ -381,12 +428,22 @@ const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, o
                                         }
                                     }}
                                 >
-                                    <DropCell
-                                        moment={momentIndex}
-                                        qubit={qubitIndex}
-                                        gate={gate}
-                                        onGateMouseDown={handleGateMouseDown}
-                                    />
+                                    <div onClick={(e) => {
+                                        if (gate && gate.type !== 'CNOT') {
+                                            e.stopPropagation();
+                                            handleGateClick(e, gate);
+                                        }
+                                        if (!gate) {
+                                            onColumnClick(momentIndex, e);
+                                        }
+                                    }}>
+                                        <DropCell
+                                            moment={momentIndex}
+                                            qubit={qubitIndex}
+                                            gate={gate}
+                                            onGateMouseDown={handleGateMouseDown}
+                                        />
+                                    </div>
                                 </div>
                             );
                         })}

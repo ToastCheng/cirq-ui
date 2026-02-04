@@ -85,6 +85,7 @@
     width: 60px;
     font-weight: bold;
     color: #bbb;
+    flex-shrink: 0;
 }
 
 .timeline {
@@ -115,7 +116,9 @@
     z-index: 1;
     display: flex;
     align-items: center;
+    align-items: center;
     justify-content: center;
+    flex-shrink: 0;
 }
 
 .drop-cell:hover,

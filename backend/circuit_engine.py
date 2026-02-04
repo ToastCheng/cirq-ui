@@ -15,9 +15,15 @@ class CircuitData(BaseModel):
     qubits: int
     gates: List[GateOp]
 
+class StepResult(BaseModel):
+    moment: int
+    state_vector: List[Dict[str, float]]
+    bloch_vectors: List[List[float]]
+
 class SimulationResult(BaseModel):
-    state_vector: List[Dict[str, float]] # Complex numbers as {real, imag}
-    bloch_vectors: List[List[float]] # [x, y, z] for each qubit
+    state_vector: List[Dict[str, float]] # Final state (same as last step)
+    bloch_vectors: List[List[float]] # Final Bloch vectors
+    steps: List[StepResult] # History of states by moment
 
 
 def partial_trace(state_vector, keep_qubit_idx, n_qubits):
@@ -130,27 +136,53 @@ def build_circuit(data: CircuitData):
         
     return circuit
 
+def process_state(state_vector, n_qubits):
+    formatted_state = []
+    for amp in state_vector:
+        formatted_state.append({"real": float(amp.real), "imag": float(amp.imag)})
+        
+    bloch_vectors = []
+    for i in range(n_qubits):
+        rho = partial_trace(state_vector, i, n_qubits)
+        vec = density_matrix_to_bloch(rho)
+        bloch_vectors.append(vec)
+        
+    return formatted_state, bloch_vectors
+
 def run_simulation(data: CircuitData) -> SimulationResult:
     circuit = build_circuit(data)
     qubits = cirq.LineQubit.range(data.qubits)
     simulator = cirq.Simulator()
-    result = simulator.simulate(circuit, qubit_order=qubits)
     
-    final_state = result.final_state_vector
+    steps = []
     
-    # Format state vector
-    formatted_state = []
-    for amp in final_state:
-        formatted_state.append({"real": float(amp.real), "imag": float(amp.imag)})
+    # Initial state (Zero state)
+    initial_state = cirq.to_valid_state_vector(0, data.qubits)
+    fmt_state, bloch = process_state(initial_state, data.qubits)
+    steps.append(StepResult(moment=-1, state_vector=fmt_state, bloch_vectors=bloch))
+    
+    current_moment = 0
+    # Collect steps
+    for step in simulator.simulate_moment_steps(circuit, qubit_order=qubits):
+        # We need the final state vector of this step
+        # Note: step.state_vector() returns the state vector.
+        # But depending on Cirq version, step itself might not be the result directly accessible. 
+        # Actually in recent Cirq, step is a StepResult. 
+        # But wait, simulate_moment_steps yields StepResult? No, it yields StepResult for each step.
+        state = step.state_vector() 
         
-    # Calculate Bloch vectors
-    bloch_vectors = []
-    for i in range(data.qubits):
-        rho = partial_trace(final_state, i, data.qubits)
-        vec = density_matrix_to_bloch(rho)
-        bloch_vectors.append(vec)
+        fmt_state, bloch = process_state(state, data.qubits)
+        steps.append(StepResult(moment=current_moment, state_vector=fmt_state, bloch_vectors=bloch))
+        current_moment += 1
         
-    return SimulationResult(state_vector=formatted_state, bloch_vectors=bloch_vectors)
+    # The final result is the last step if steps exist, else initial
+    final_step = steps[-1]
+    
+    return SimulationResult(
+        state_vector=final_step.state_vector,
+        bloch_vectors=final_step.bloch_vectors,
+        steps=steps
+    )
 
 def generate_cirq_code(data: CircuitData) -> Dict[str, str]:
     circuit = build_circuit(data)
