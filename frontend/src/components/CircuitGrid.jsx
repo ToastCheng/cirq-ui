@@ -25,15 +25,9 @@ const DropCell = ({ moment, qubit, gate, onGateMouseDown }) => {
 
 const GateRenderer = ({ gate, onMouseDown }) => {
     if (gate.type === 'CNOT') {
-        // Calculate distance to target
-        // Default target is qubit+1 if not defined, but we ensure it is defined in Composer
         const target = gate.target !== undefined ? gate.target : gate.qubit; // fallback
         const distance = target - gate.qubit;
         const height = Math.abs(distance * ROW_HEIGHT);
-
-        // Style for the line
-        // If target is below (distance > 0), line goes down.
-        // If target is above (distance < 0), line starts at top and goes up (or we translate it up)
 
         const lineStyle = {
             height: `${height}px`,
@@ -44,7 +38,7 @@ const GateRenderer = ({ gate, onMouseDown }) => {
             backgroundColor: '#42A5F5',
             transform: `translateX(-50%) ${distance < 0 ? 'translateY(-100%)' : ''}`,
             zIndex: 10,
-            pointerEvents: 'none' // Let clicks pass through line
+            pointerEvents: 'none'
         };
 
         const targetStyle = {
@@ -63,7 +57,7 @@ const GateRenderer = ({ gate, onMouseDown }) => {
             fontWeight: 'bold',
             fontSize: '20px',
             pointerEvents: 'none',
-            backgroundColor: '#1e1e1e', // Mask line behind
+            backgroundColor: '#1e1e1e',
             zIndex: 11
         };
 
@@ -86,20 +80,20 @@ const GateRenderer = ({ gate, onMouseDown }) => {
             onMouseDown={onMouseDown}
         >
             {gate.type}
+            {/* Show parameter value if present and enabled? Maybe too cluttered. */}
         </div>
     );
 };
 
 
 const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, onRemoveGate }) => {
-    // Assuming a fixed number of moments used for now, say 10
     const moments = Array.from({ length: 10 }, (_, i) => i);
     const [activeMenu, setActiveMenu] = React.useState(null);
-    const [editModal, setEditModal] = React.useState({ show: false, gate: null, targetV: '' });
+    const [editModal, setEditModal] = React.useState({ show: false, gate: null, targetV: '', parameterV: '' });
 
     // Drag to connect state
     const [connectingGate, setConnectingGate] = useState(null);
-    const [dragLine, setDragLine] = useState(null); // { startX, startY, endX, endY } relative to grid? Or just mouse pos
+    const [dragLine, setDragLine] = useState(null);
 
     const handleQubitClick = (e, index) => {
         e.preventDefault();
@@ -123,17 +117,10 @@ const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, o
         });
     };
 
-    // Gate Mouse Down - Start connecting if CNOT, or just handle click for menu
     const handleGateMouseDown = (e, gate) => {
         // If it's CNOT, start connecting drag
         if (gate.type === 'CNOT') {
-            // We want to handle right click as menu, left click as drag?
-            // Or maybe just left click drag works.
-            // If we drag, we update target.
-
-            // To verify if it's a drag or click, we usually wait for move.
-            // For simplicity: Start tracking.
-            e.preventDefault(); // Prevent default text selection
+            e.preventDefault();
             e.stopPropagation();
 
             const rect = e.currentTarget.getBoundingClientRect();
@@ -146,10 +133,6 @@ const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, o
                 startY: centerY
             });
             setDragLine({ x: e.clientX, y: e.clientY });
-        } else {
-            // Regular gate - allow click to propagate?
-            // Actually, we are using handleGateClick for context menu which is onClick
-            // onClick triggers after onMouseUp
         }
     };
 
@@ -161,7 +144,6 @@ const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, o
 
     const handleGlobalMouseUp = (e) => {
         if (connectingGate) {
-            // Check where we dropped
             const line = document.elementFromPoint(e.clientX, e.clientY)?.closest('.qubit-line');
             if (line && line.dataset.qubitIndex) {
                 const targetIndex = parseInt(line.dataset.qubitIndex);
@@ -175,7 +157,6 @@ const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, o
         }
     };
 
-    // Attach global listeners for dragging
     useEffect(() => {
         if (connectingGate) {
             window.addEventListener('mousemove', handleGlobalMouseMove);
@@ -204,11 +185,18 @@ const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, o
             if (action === 'delete') {
                 onRemoveGate(gate.id);
             } else if (action === 'edit') {
-                // Open Modal
                 setEditModal({
                     show: true,
                     gate: gate,
-                    targetV: gate.target !== undefined ? gate.target : (gate.qubit + 1) % qubits
+                    targetV: gate.target !== undefined ? gate.target : (gate.qubit + 1) % qubits,
+                    parameterV: gate.parameter !== undefined ? gate.parameter : Math.PI / 2
+                });
+            } else if (action === 'edit-param') {
+                setEditModal({
+                    show: true,
+                    gate: gate,
+                    targetV: gate.target !== undefined ? gate.target : (gate.qubit + 1) % qubits,
+                    parameterV: gate.parameter !== undefined ? gate.parameter : Math.PI / 2
                 });
             }
         }
@@ -217,17 +205,38 @@ const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, o
 
     const saveEdit = () => {
         if (!editModal.gate) return;
-        const newTarget = parseInt(editModal.targetV, 10);
-        if (!isNaN(newTarget) && newTarget >= 0 && newTarget < qubits) {
-            onUpdateGate(editModal.gate.id, { target: newTarget });
+        const updates = {};
+
+        // Update Target (if applicable/shown)
+        if (['CNOT'].includes(editModal.gate.type)) {
+            const newTarget = parseInt(editModal.targetV, 10);
+            if (!isNaN(newTarget) && newTarget >= 0 && newTarget < qubits) {
+                updates.target = newTarget;
+            } else {
+                alert("Invalid qubit index");
+                return;
+            }
+        }
+
+        // Update Parameter (if applicable/shown)
+        if (['RX', 'RY', 'RZ'].includes(editModal.gate.type)) {
+            const newParam = parseFloat(editModal.parameterV);
+            if (!isNaN(newParam)) {
+                updates.parameter = newParam;
+            } else {
+                alert("Invalid parameter");
+                return;
+            }
+        }
+
+        if (Object.keys(updates).length > 0) {
+            onUpdateGate(editModal.gate.id, updates);
             closeModal();
-        } else {
-            alert("Invalid qubit index");
         }
     };
 
     const closeModal = () => {
-        setEditModal({ show: false, gate: null, targetV: '' });
+        setEditModal({ show: false, gate: null, targetV: '', parameterV: '' });
     };
 
     return (
@@ -263,16 +272,37 @@ const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, o
                 <div className="modal-overlay" onClick={closeModal}>
                     <div className="modal-content" onClick={e => e.stopPropagation()}>
                         <h3>Edit Gate</h3>
-                        <div className="form-group">
-                            <label>Target Qubit Index:</label>
-                            <input
-                                type="number"
-                                value={editModal.targetV}
-                                onChange={e => setEditModal({ ...editModal, targetV: e.target.value })}
-                                min="0"
-                                max={qubits - 1}
-                            />
-                        </div>
+
+                        {/* Target Input - Only for CNOT (though CNOT uses drag, we can keep it here too) */}
+                        {editModal.gate.type === 'CNOT' && (
+                            <div className="form-group">
+                                <label>Target Qubit Index:</label>
+                                <input
+                                    type="number"
+                                    value={editModal.targetV}
+                                    onChange={e => setEditModal({ ...editModal, targetV: e.target.value })}
+                                    min="0"
+                                    max={qubits - 1}
+                                />
+                            </div>
+                        )}
+
+                        {/* Parameter Input - Only for Rotation Gates */}
+                        {['RX', 'RY', 'RZ'].includes(editModal.gate.type) && (
+                            <div className="form-group">
+                                <label>Rotation Angle (Radians):</label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    value={editModal.parameterV}
+                                    onChange={e => setEditModal({ ...editModal, parameterV: e.target.value })}
+                                />
+                                <div style={{ fontSize: '11px', color: '#888', marginTop: '5px' }}>
+                                    Common values: π/2 ≈ 1.57, π ≈ 3.14
+                                </div>
+                            </div>
+                        )}
+
                         <div className="modal-actions">
                             <button onClick={closeModal} className="btn-cancel">Cancel</button>
                             <button onClick={saveEdit} className="btn-save">Save</button>
@@ -300,7 +330,8 @@ const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, o
                         )}
                         {activeMenu.type === 'gate' && (
                             <>
-                                <div onClick={() => handleAction('edit')}>Edit Target</div>
+                                {activeMenu.gate.type === 'CNOT' && <div onClick={() => handleAction('edit')}>Edit Target</div>}
+                                {['RX', 'RY', 'RZ'].includes(activeMenu.gate.type) && <div onClick={() => handleAction('edit')}>Edit Parameter</div>}
                                 <div onClick={() => handleAction('delete')} className="danger">Delete Gate</div>
                             </>
                         )}
@@ -324,15 +355,13 @@ const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, o
                     </div>
                     <div className="timeline">
                         {moments.map(momentIndex => {
-                            // Find if there is a gate at this position
                             const gate = gates.find(g => g.qubit === qubitIndex && g.moment === momentIndex);
                             return (
                                 <div
                                     key={momentIndex}
                                     onClick={(e) => gate && gate.type !== 'CNOT' && handleGateClick(e, gate)}
-                                    // For CNOT, click might be interpreted as drag start, 
-                                    // but we handled handleGateMouseDown.
-                                    // We can attach Context Menu listener to right click?
+                                    // Handle right click for CNOT too if needed, but primary is drag.
+                                    // For now CNOT right click is also handleGateClick via onContextMenu
                                     onContextMenu={(e) => {
                                         if (gate) {
                                             e.preventDefault();

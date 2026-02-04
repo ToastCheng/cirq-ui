@@ -1,13 +1,14 @@
 import cirq
 from pydantic import BaseModel
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Union
 import numpy as np
 
 class GateOp(BaseModel):
-    type: str # H, X, Y, Z, CNOT, SWAP, CZ
+    type: str # H, X, Y, Z, CNOT, SWAP, CZ, RX, RY, RZ
     qubit: Optional[int] = None # For 1-qubit gates
     target: Optional[int] = None # For CNOT/CZ target
     control: Optional[int] = None # For CNOT/CZ control
+    parameter: Optional[Union[float, str]] = None # For rotation gates, value in radians
     moment: int
 
 class CircuitData(BaseModel):
@@ -88,6 +89,20 @@ def build_circuit(data: CircuitData):
         elif g.type == "Z":
             if g.qubit is not None:
                 moment_ops[g.moment].append(cirq.Z(qubits[g.qubit]))
+        elif g.type == "RX":
+            if g.qubit is not None:
+                # Default to pi, but actually user prompt said pi/2 default.
+                # Let's say if param is None, use pi/2.
+                val = float(g.parameter) if g.parameter is not None else np.pi / 2
+                moment_ops[g.moment].append(cirq.rx(val)(qubits[g.qubit]))
+        elif g.type == "RY":
+            if g.qubit is not None:
+                val = float(g.parameter) if g.parameter is not None else np.pi / 2
+                moment_ops[g.moment].append(cirq.ry(val)(qubits[g.qubit]))
+        elif g.type == "RZ":
+            if g.qubit is not None:
+                val = float(g.parameter) if g.parameter is not None else np.pi / 2
+                moment_ops[g.moment].append(cirq.rz(val)(qubits[g.qubit]))
         elif g.type == "CNOT":
             if g.control is not None and g.target is not None:
                 moment_ops[g.moment].append(cirq.CNOT(qubits[g.control], qubits[g.target]))

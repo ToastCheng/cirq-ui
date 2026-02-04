@@ -33,6 +33,10 @@ const CircuitComposer = () => {
                         // Default target: qubit + 1 (wrapping) if not explicit
                         gateObj.target = g.target !== undefined ? g.target : (g.qubit + 1) % qubits;
                     }
+
+                    if (['RX', 'RY', 'RZ'].includes(g.type)) {
+                        gateObj.parameter = g.parameter;
+                    }
                     return gateObj;
                 })
             };

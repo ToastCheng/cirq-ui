@@ -24,7 +24,7 @@ const DraggableGate = ({ type }) => {
 };
 
 const GatePalette = () => {
-    const gates = ['H', 'X', 'Y', 'Z', 'CNOT'];
+    const gates = ['H', 'X', 'Y', 'Z', 'RX', 'RY', 'RZ', 'CNOT'];
 
     return (
         <div className="gate-palette">

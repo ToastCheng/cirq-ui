@@ -50,6 +50,12 @@
     background-color: #FF7043;
 }
 
+.gate-RX,
+.gate-RY,
+.gate-RZ {
+    background-color: #AB47BC;
+}
+
 .gate-X,
 .gate-Y,
 .gate-Z {
