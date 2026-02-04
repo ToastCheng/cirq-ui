@@ -1,0 +1,132 @@
+.circuit-composer {
+    display: flex;
+    flex-direction: row;
+    height: 100%;
+    gap: 20px;
+}
+
+.sidebar {
+    width: 200px;
+    background-color: #252526;
+    padding: 15px;
+    border-right: 1px solid #3e3e3e;
+    border-radius: 8px;
+}
+
+.main-area {
+    flex: 2;
+    background-color: #1e1e1e;
+    padding: 20px;
+    border-radius: 8px;
+    overflow-x: auto;
+}
+
+.visualization-area {
+    flex: 1;
+    background-color: #252526;
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 1px solid #3e3e3e;
+}
+
+/* Gate Styles */
+.gate {
+    width: 50px;
+    height: 50px;
+    background-color: #007acc;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 10px;
+    cursor: grab;
+    border-radius: 4px;
+    font-weight: bold;
+    user-select: none;
+    z-index: 100;
+}
+
+.gate-H {
+    background-color: #FF7043;
+}
+
+.gate-X,
+.gate-Y,
+.gate-Z {
+    background-color: #26A69A;
+}
+
+.gate-CNOT {
+    background-color: #42A5F5;
+}
+
+/* Grid Styles */
+.circuit-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding-top: 20px;
+}
+
+.qubit-line {
+    display: flex;
+    align-items: center;
+    position: relative;
+    height: 60px;
+}
+
+.qubit-label {
+    width: 60px;
+    font-weight: bold;
+    color: #bbb;
+}
+
+.timeline {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    position: relative;
+    flex: 1;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background-color: #555;
+    z-index: 0;
+}
+
+.drop-cell {
+    width: 60px;
+    height: 60px;
+    margin-right: 10px;
+    border: 1px dashed #444;
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.drop-cell:hover,
+.drop-cell.over {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: #888;
+}
+
+.placed-gate {
+    width: 50px;
+    height: 50px;
+    background-color: #007acc;
+    /* Fallback */
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    font-weight: bold;
+}
