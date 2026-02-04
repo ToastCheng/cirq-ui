@@ -56,17 +56,27 @@ const BlochSphere = ({ vector, label }) => {
     );
 };
 
-const VisualizationPanel = ({ simulationResult }) => {
-    if (!simulationResult) return <div style={{ color: '#888' }}>Run simulation to see results...</div>;
+
+export const BlochSpherePanel = ({ simulationResult }) => {
+    if (!simulationResult) return <div style={{ color: '#888', padding: '20px', textAlign: 'center' }}>Run simulation to see Bloch spheres...</div>;
 
     return (
-        <div className="viz-panel">
+        <div className="viz-panel bloch-panel">
             <h4>Bloch Spheres</h4>
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center' }}>
                 {simulationResult.bloch_vectors.map((vec, i) => (
                     <BlochSphere key={i} vector={vec} label={`Q${i}`} />
                 ))}
             </div>
+        </div>
+    );
+};
+
+export const StateVisualizationPanel = ({ simulationResult }) => {
+    if (!simulationResult) return <div style={{ color: '#888' }}>Run simulation to see results...</div>;
+
+    return (
+        <div className="viz-panel state-panel">
 
             <h4>State Vector</h4>
             <div style={{ fontSize: '12px', fontFamily: 'monospace', color: '#bbb', marginBottom: '20px' }}>
@@ -110,4 +120,4 @@ const VisualizationPanel = ({ simulationResult }) => {
     );
 };
 
-export default VisualizationPanel;
+export default StateVisualizationPanel;

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { DndContext, useDraggable, useDroppable } from '@dnd-kit/core';
+import { DndContext } from '@dnd-kit/core';
 import GatePalette from './GatePalette';
 import CircuitGrid from './CircuitGrid';
-import VisualizationPanel from './VisualizationPanel';
+import { BlochSpherePanel, StateVisualizationPanel } from './VisualizationPanel';
 import CodePanel from './CodePanel';
 import './CircuitComposer.css';
 
@@ -78,10 +78,6 @@ const CircuitComposer = () => {
         if (!simulationResult) return null;
         if (selectedMoment !== null && simulationResult.steps) {
             // Find step for this moment
-            // Moment index matches StepResult.moment? 
-            // StepResult.moment = -1 for initial, 0 for after moment 0 ops, etc.
-            // If user selects moment 0 (column 0), they expect state AFTER moment 0 ops?
-            // Usually yes.
             const step = simulationResult.steps.find(s => s.moment === selectedMoment);
             if (step) {
                 return {
@@ -185,21 +181,26 @@ const CircuitComposer = () => {
                         <p>Click moment column to inspect state.</p>
                     </div>
                 </div>
-                <div className="main-area" onClick={e => e.stopPropagation()}>
-                    <CircuitGrid
-                        qubits={qubits}
-                        gates={gates}
-                        setGates={setGates}
-                        onAddQubit={addQubit}
-                        onRemoveQubit={removeQubit}
-                        onUpdateGate={updateGate}
-                        onRemoveGate={removeGate}
-                        selectedMoment={selectedMoment}
-                        onMomentSelect={handleMomentSelect}
-                    />
+                <div className="main-area" onClick={e => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ flex: 1, overflowX: 'auto', marginBottom: '20px' }}>
+                        <CircuitGrid
+                            qubits={qubits}
+                            gates={gates}
+                            setGates={setGates}
+                            onAddQubit={addQubit}
+                            onRemoveQubit={removeQubit}
+                            onUpdateGate={updateGate}
+                            onRemoveGate={removeGate}
+                            selectedMoment={selectedMoment}
+                            onMomentSelect={handleMomentSelect}
+                        />
+                    </div>
+                    <div style={{ borderTop: '1px solid #3e3e3e', paddingTop: '10px' }}>
+                        <BlochSpherePanel simulationResult={displayResult} />
+                    </div>
                 </div>
                 <div className="visualization-area" onClick={e => e.stopPropagation()}>
-                    <VisualizationPanel simulationResult={displayResult} />
+                    <StateVisualizationPanel simulationResult={displayResult} />
                     <CodePanel code={code} />
                 </div>
             </div>
