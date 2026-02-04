@@ -74,13 +74,24 @@ const GateRenderer = ({ gate, onMouseDown }) => {
         );
     }
 
+    // Check for rotation parameter
+    let paramDisplay = null;
+    if (['RX', 'RY', 'RZ'].includes(gate.type) && gate.parameter !== undefined) {
+        // Calculate multiplier of PI
+        const mult = gate.parameter / Math.PI;
+        // Round to 2 decimals for display
+        const rounded = Math.round(mult * 100) / 100;
+        paramDisplay = <div style={{ fontSize: '10px', marginTop: '-2px' }}>{rounded}π</div>;
+    }
+
     return (
         <div
             className={`placed-gate gate-${gate.type}`}
             onMouseDown={onMouseDown}
+            style={{ flexDirection: 'column' }}
         >
-            {gate.type}
-            {/* Show parameter value if present and enabled? Maybe too cluttered. */}
+            <div>{gate.type}</div>
+            {paramDisplay}
         </div>
     );
 };
@@ -184,19 +195,19 @@ const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, o
             const gate = activeMenu.gate;
             if (action === 'delete') {
                 onRemoveGate(gate.id);
-            } else if (action === 'edit') {
+            } else if (action === 'edit' || action === 'edit-param') {
+                // For rotation gates, preset parameterV as multiplier of PI
+                let initialParam = '';
+                if (['RX', 'RY', 'RZ'].includes(gate.type)) {
+                    const rads = gate.parameter !== undefined ? gate.parameter : Math.PI / 2;
+                    initialParam = rads / Math.PI;
+                }
+
                 setEditModal({
                     show: true,
                     gate: gate,
                     targetV: gate.target !== undefined ? gate.target : (gate.qubit + 1) % qubits,
-                    parameterV: gate.parameter !== undefined ? gate.parameter : Math.PI / 2
-                });
-            } else if (action === 'edit-param') {
-                setEditModal({
-                    show: true,
-                    gate: gate,
-                    targetV: gate.target !== undefined ? gate.target : (gate.qubit + 1) % qubits,
-                    parameterV: gate.parameter !== undefined ? gate.parameter : Math.PI / 2
+                    parameterV: initialParam
                 });
             }
         }
@@ -220,9 +231,10 @@ const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, o
 
         // Update Parameter (if applicable/shown)
         if (['RX', 'RY', 'RZ'].includes(editModal.gate.type)) {
-            const newParam = parseFloat(editModal.parameterV);
-            if (!isNaN(newParam)) {
-                updates.parameter = newParam;
+            const multiplier = parseFloat(editModal.parameterV);
+            if (!isNaN(multiplier)) {
+                // Convert back to radians
+                updates.parameter = multiplier * Math.PI;
             } else {
                 alert("Invalid parameter");
                 return;
@@ -290,15 +302,15 @@ const CircuitGrid = ({ qubits, gates, onAddQubit, onRemoveQubit, onUpdateGate, o
                         {/* Parameter Input - Only for Rotation Gates */}
                         {['RX', 'RY', 'RZ'].includes(editModal.gate.type) && (
                             <div className="form-group">
-                                <label>Rotation Angle (Radians):</label>
+                                <label>Rotation Angle (multiplier of π):</label>
                                 <input
                                     type="number"
-                                    step="0.01"
+                                    step="0.1"
                                     value={editModal.parameterV}
                                     onChange={e => setEditModal({ ...editModal, parameterV: e.target.value })}
                                 />
                                 <div style={{ fontSize: '11px', color: '#888', marginTop: '5px' }}>
-                                    Common values: π/2 ≈ 1.57, π ≈ 3.14
+                                    Example: 0.5 = π/2, 1 = π, 2 = 2π
                                 </div>
                             </div>
                         )}
