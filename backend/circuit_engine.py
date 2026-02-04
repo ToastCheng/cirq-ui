@@ -100,8 +100,9 @@ def build_circuit(data: CircuitData):
 
 def run_simulation(data: CircuitData) -> SimulationResult:
     circuit = build_circuit(data)
+    qubits = cirq.LineQubit.range(data.qubits)
     simulator = cirq.Simulator()
-    result = simulator.simulate(circuit)
+    result = simulator.simulate(circuit, qubit_order=qubits)
     
     final_state = result.final_state_vector
     
