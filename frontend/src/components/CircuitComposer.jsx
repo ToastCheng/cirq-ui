@@ -14,10 +14,58 @@ const CircuitComposer = () => {
     const [simulationResult, setSimulationResult] = useState(null);
     const [code, setCode] = useState("");
     const [selectedMoment, setSelectedMoment] = useState(null);
+    const [isLoaded, setIsLoaded] = useState(false); // Track if initial load is complete
 
     const backendUrl = "http://127.0.0.1:8000";
 
+    // Load from URL snapshot on mount
     useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const snapshot = params.get('snapshot');
+
+        if (snapshot) {
+            try {
+                // Decode base64
+                const jsonStr = atob(snapshot);
+                const data = JSON.parse(jsonStr);
+
+                // Restore state
+                if (data.qubits) setQubits(data.qubits);
+                if (data.qubitNames) setQubitNames(data.qubitNames);
+                if (data.gates) setGates(data.gates);
+                if (data.momentCount) setMomentCount(data.momentCount);
+
+            } catch (e) {
+                console.error("Failed to parse snapshot:", e);
+            }
+        }
+        setIsLoaded(true);
+    }, []);
+
+    // Update URL snapshot on state change
+    useEffect(() => {
+        if (!isLoaded) return; // Don't overwrite URL during initial load
+
+        const state = {
+            qubits,
+            qubitNames,
+            gates,
+            momentCount
+        };
+
+        const jsonStr = JSON.stringify(state);
+        const base64 = btoa(jsonStr);
+
+        // Update URL without reloading
+        const url = new URL(window.location);
+        url.searchParams.set('snapshot', base64);
+        window.history.replaceState({}, '', url);
+
+    }, [qubits, qubitNames, gates, momentCount, isLoaded]);
+
+    useEffect(() => {
+        if (!isLoaded) return;
+
         // Fetch simulation and code whenever circuit changes
         const fetchData = async () => {
             // Construct CircuitData payload
