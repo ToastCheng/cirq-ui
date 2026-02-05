@@ -282,28 +282,27 @@ const CircuitComposer = () => {
                         <p>Click moment column to inspect state.</p>
                     </div>
                 </div>
-                <div className="main-area" onClick={e => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
-                    <button
-                        onClick={requestReset}
-                        style={{
-                            position: 'absolute',
-                            top: '10px',
-                            right: '10px',
-                            zIndex: 100,
-                            padding: '6px 12px',
-                            backgroundColor: '#d32f2f',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            fontWeight: 'bold',
-                            fontSize: '12px'
-                        }}
-                    >
-                        Reset
-                    </button>
+                <div className="main-area" onClick={e => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0px' }}>
+                        <button
+                            onClick={requestReset}
+                            style={{
+                                zIndex: 100,
+                                padding: '6px 12px',
+                                backgroundColor: '#d32f2f',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontWeight: 'bold',
+                                fontSize: '12px'
+                            }}
+                        >
+                            Reset
+                        </button>
+                    </div>
 
-                    <div style={{ flex: 1, overflowX: 'auto', marginTop: '10px', marginBottom: '20px' }}>
+                    <div style={{ flex: 1, overflowX: 'auto', marginBottom: '20px' }}>
                         <CircuitGrid
                             qubits={qubits}
                             momentCount={momentCount}
