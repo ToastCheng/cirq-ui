@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 
-const CELL_SIZE = 60;
-const GAP_SIZE = 20;
+const CELL_SIZE = 30;
+const GAP_SIZE = 12;
 const ROW_HEIGHT = CELL_SIZE + GAP_SIZE;
 
 // Represents a single timeline spot for a qubit
@@ -87,7 +87,7 @@ const GateRenderer = ({ gate, onMouseDown }) => {
             position: 'absolute',
             left: '50%',
             top: '50%',
-            width: '4px',
+            width: '2px', // Thinner line for smaller scale
             backgroundColor: '#42A5F5',
             transform: `translateX(-50%) ${distance < 0 ? 'translateY(-100%)' : ''}`,
             zIndex: 10,
@@ -99,16 +99,16 @@ const GateRenderer = ({ gate, onMouseDown }) => {
             left: '50%',
             top: '50%',
             transform: `translate(-50%, -50%) translateY(${distance * ROW_HEIGHT}px)`,
-            width: '30px',
-            height: '30px',
+            width: '20px',
+            height: '20px',
             borderRadius: '50%',
-            border: '3px solid #42A5F5',
+            border: '2px solid #42A5F5',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             color: '#42A5F5',
             fontWeight: 'bold',
-            fontSize: '20px',
+            fontSize: '14px',
             pointerEvents: 'none',
             backgroundColor: '#1e1e1e',
             zIndex: 11
@@ -118,14 +118,30 @@ const GateRenderer = ({ gate, onMouseDown }) => {
             <div
                 className="placed-gate gate-CNOT-container"
                 onMouseDown={onMouseDown}
-                style={{ position: 'relative', width: '100%', height: '100%' }}
+                style={{
+                    position: 'relative',
+                    boxSizing: 'border-box',
+                    width: '30px',
+                    height: '30px',
+                    display: 'block' // Enforce block to respect dimensions
+                }}
             >
                 {/* Extra generic controls */}
                 {renderControls()}
                 {/* Standard CNOT parts */}
-                <div className="control-dot" />
+                <div className="control-dot" style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    width: '10px',
+                    height: '10px',
+                    transform: 'translate(-50%, -50%)',
+                    boxSizing: 'border-box',
+                    borderRadius: '50%',
+                    zIndex: 15 // Ensure on top
+                }} />
                 <div className="connection-line" style={lineStyle} />
-                <div className="target-indicator" style={targetStyle}>+</div>
+                <div className="target-indicator" style={{ ...targetStyle, boxSizing: 'border-box' }}>+</div>
             </div>
         );
     }
@@ -362,6 +378,10 @@ const CircuitGrid = ({ qubits, momentCount, qubitNames, gates, onAddQubit, onRem
         });
     };
 
+    const CELL_SIZE = 30;
+    const GAP_SIZE = 12;
+    const ROW_HEIGHT = CELL_SIZE + GAP_SIZE;
+
     const onColumnClick = (momentIndex, e) => {
         e.stopPropagation();
         if (onMomentSelect) onMomentSelect(momentIndex);
@@ -374,7 +394,7 @@ const CircuitGrid = ({ qubits, momentCount, qubitNames, gates, onAddQubit, onRem
                 position: 'absolute',
                 top: 0,
                 bottom: 0,
-                left: '60px', // Matches .qubit-label width
+                left: '30px', // Matches .qubit-label width
                 right: '40px', // Leave space for the add moment button
                 display: 'flex',
                 flexDirection: 'row',
@@ -388,7 +408,7 @@ const CircuitGrid = ({ qubits, momentCount, qubitNames, gates, onAddQubit, onRem
                             key={momentIndex}
                             onClick={(e) => onColumnClick(momentIndex, e)}
                             style={{
-                                width: '60px', // Matches .drop-cell width
+                                width: '30px', // Matches .drop-cell width
                                 marginRight: '10px', // Matches .drop-cell margin-right
                                 backgroundColor: isSelected ? 'rgba(66, 165, 245, 0.1)' : 'transparent',
                                 borderLeft: isSelected ? '1px solid rgba(66, 165, 245, 0.3)' : '1px solid transparent',
@@ -567,7 +587,7 @@ const CircuitGrid = ({ qubits, momentCount, qubitNames, gates, onAddQubit, onRem
             )}
 
             <div style={{ display: 'flex' }}>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: `${GAP_SIZE}px` }}>
                     {Array.from({ length: qubits }).map((_, qubitIndex) => (
                         <div
                             key={qubitIndex}
@@ -674,13 +694,14 @@ const CircuitGrid = ({ qubits, momentCount, qubitNames, gates, onAddQubit, onRem
                             border: '1px solid #444',
                             borderRadius: '4px',
                             cursor: 'pointer',
-                            writingMode: 'vertical-rl',
+
                             textOrientation: 'mixed',
-                            height: '100px'
+                            height: '100px',
+                            fontSize: '12px'
                         }}
                         title="Extend Circuit"
                     >
-                        + Add Moments
+                        +
                     </button>
                 </div>
             </div>
