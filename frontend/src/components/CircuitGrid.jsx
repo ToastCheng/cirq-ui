@@ -603,7 +603,7 @@ const CircuitGrid = ({ qubits, momentCount, qubitNames, gates, onAddQubit, onRem
                                     position: 'relative',
                                     zIndex: 2,
                                     flexShrink: 0,
-                                    minWidth: '60px'
+                                    minWidth: '30px'
                                 }}
                                 title={`Click to manage qubit ${qubitNames && qubitNames[qubitIndex] ? qubitNames[qubitIndex] : qubitIndex}`}
                             >
