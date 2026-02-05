@@ -241,13 +241,40 @@ const CircuitComposer = () => {
         });
     };
 
+    const [showResetModal, setShowResetModal] = useState(false);
+
     const handleMomentSelect = (momentIndex) => {
         setSelectedMoment(prev => prev === momentIndex ? null : momentIndex);
     };
 
+    const requestReset = () => {
+        setShowResetModal(true);
+    };
+
+    const confirmReset = () => {
+        setQubits(3);
+        setQubitNames(['0', '1', '2']);
+        setGates([]);
+        setMomentCount(10);
+        setSimulationResult(null);
+        setCode("");
+        setSelectedMoment(null);
+
+        // Clear URL snapshot
+        const url = new URL(window.location.search, window.location.origin);
+        url.searchParams.delete('snapshot');
+        window.history.replaceState({}, '', url); // Use replaceState to update URL without reload and with correct path
+
+        setShowResetModal(false);
+    };
+
+    const closeResetModal = () => {
+        setShowResetModal(false);
+    };
+
     return (
         <DndContext onDragEnd={handleDragEnd}>
-            <div className="circuit-composer" onClick={() => setSelectedMoment(null)}>
+            <div className="circuit-composer" onClick={() => setSelectedMoment(null)} style={{ position: 'relative' }}>
                 <div className="sidebar" onClick={e => e.stopPropagation()}>
                     <GatePalette />
                     <div style={{ marginTop: '20px', color: '#888', fontSize: '12px' }}>
@@ -255,8 +282,28 @@ const CircuitComposer = () => {
                         <p>Click moment column to inspect state.</p>
                     </div>
                 </div>
-                <div className="main-area" onClick={e => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ flex: 1, overflowX: 'auto', marginBottom: '20px' }}>
+                <div className="main-area" onClick={e => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
+                    <button
+                        onClick={requestReset}
+                        style={{
+                            position: 'absolute',
+                            top: '10px',
+                            right: '10px',
+                            zIndex: 100,
+                            padding: '6px 12px',
+                            backgroundColor: '#d32f2f',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontWeight: 'bold',
+                            fontSize: '12px'
+                        }}
+                    >
+                        Reset
+                    </button>
+
+                    <div style={{ flex: 1, overflowX: 'auto', marginTop: '10px', marginBottom: '20px' }}>
                         <CircuitGrid
                             qubits={qubits}
                             momentCount={momentCount}
@@ -281,6 +328,22 @@ const CircuitComposer = () => {
                     <StateVisualizationPanel simulationResult={displayResult} />
                     <CodePanel code={code} />
                 </div>
+
+                {/* Reset Confirmation Modal */}
+                {showResetModal && (
+                    <div className="modal-overlay" onClick={closeResetModal}>
+                        <div className="modal-content" onClick={e => e.stopPropagation()} style={{ minWidth: '300px' }}>
+                            <h3 style={{ marginTop: 0 }}>Confirm Reset</h3>
+                            <p style={{ color: '#ccc', marginBottom: '20px' }}>
+                                Are you sure you want to reset the circuit?
+                            </p>
+                            <div className="modal-actions">
+                                <button onClick={closeResetModal} className="btn-cancel">Cancel</button>
+                                <button onClick={confirmReset} className="btn-save" style={{ backgroundColor: '#d32f2f' }}>Reset</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </DndContext>
     );
