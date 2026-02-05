@@ -567,7 +567,7 @@ const CircuitGrid = ({ qubits, momentCount, qubitNames, gates, onAddQubit, onRem
             )}
 
             <div style={{ display: 'flex' }}>
-                <div style={{ flex: 1 }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '20px' }}>
                     {Array.from({ length: qubits }).map((_, qubitIndex) => (
                         <div
                             key={qubitIndex}
